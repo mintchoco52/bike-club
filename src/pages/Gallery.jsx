@@ -238,8 +238,8 @@ export default function Gallery() {
               const isLiked = photo.photo_likes?.some(l => l.user_id === user?.id)
               const likeCount = photo.photo_likes?.length || 0
               return (
-                <div key={photo.id} className="gallery-item">
-                  <img src={photo.url} alt={photo.title} className="gallery-img" loading="lazy" onClick={() => setSelected(photo)} />
+                <div key={photo.id} className="gallery-item" onClick={() => setSelected(photo)}>
+                  <img src={photo.url} alt={photo.title} className="gallery-img" loading="lazy" />
                   <div className="gallery-item-overlay">
                     <div className="gallery-item-info">
                       <p className="gallery-item-title">{photo.title}</p>
