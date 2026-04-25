@@ -24,9 +24,36 @@ export function AuthProvider({ children }) {
           .from('profiles')
           .select('*')
           .eq('id', u.id)
-          .single()
-          .then(({ data }) => setProfile(data ?? null))
-          .catch(() => setProfile(null))
+          .maybeSingle()          // 행이 없어도 406 대신 data: null 반환
+          .then(async ({ data, error }) => {
+            if (error) {
+              console.error('[profiles] select error:', error)
+              setProfile(null)
+              return
+            }
+            if (data) {
+              setProfile(data)
+            } else {
+              // 트리거 미실행 등으로 프로필 행이 없는 경우 직접 생성
+              console.warn('[profiles] 행 없음 → 자동 생성 시도')
+              const name = u.user_metadata?.name || u.email?.split('@')[0] || '사용자'
+              const { data: created, error: insertError } = await supabase
+                .from('profiles')
+                .insert({ id: u.id, name })
+                .select()
+                .single()
+              if (insertError) {
+                console.error('[profiles] insert error:', insertError)
+                setProfile(null)
+              } else {
+                setProfile(created)
+              }
+            }
+          })
+          .catch(err => {
+            console.error('[profiles] unexpected error:', err)
+            setProfile(null)
+          })
           .finally(() => {
             clearTimeout(safetyTimer)
             setLoading(false)

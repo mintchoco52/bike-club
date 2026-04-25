@@ -28,13 +28,16 @@ export default function MeetingDetail() {
   const [participants, setParticipants] = useState([])
   const [loading, setLoading] = useState(true)
   const [joining, setJoining] = useState(false)
+  const [joinError, setJoinError] = useState('')
 
-  const fetchMeeting = useCallback(async () => {
+  const fetchMeeting = useCallback(async ({ showLoading = false } = {}) => {
+    if (showLoading) setLoading(true)
     const { data, error } = await supabase
       .from('meetings')
       .select('*, meeting_participants(user_id, user_name)')
       .eq('id', id)
       .single()
+    console.log('[fetchMeeting] data:', data, 'error:', error)
     if (error || !data) { setLoading(false); return }
     setMeeting(data)
     setParticipants(data.meeting_participants || [])
@@ -43,7 +46,7 @@ export default function MeetingDetail() {
 
   useEffect(() => {
     window.scrollTo(0, 0)
-    fetchMeeting()
+    fetchMeeting({ showLoading: true })
   }, [fetchMeeting])
 
   const isJoined = participants.some(p => p.user_id === user?.id)
@@ -53,21 +56,70 @@ export default function MeetingDetail() {
     : 0
 
   async function handleJoin() {
-    if (!user || !profile || joining) return
+    console.group('[handleJoin]')
+    console.log('user.id   :', user?.id)
+    console.log('meeting.id:', id)
+    console.log('isJoined  :', isJoined)
+    console.log('participants:', participants)
+    console.log('profile   :', profile)
+
+    if (!user)    { console.warn('❌ user is null');    console.groupEnd(); return }
+    if (!profile) { console.warn('❌ profile is null'); console.groupEnd(); return }
+    if (joining)  { console.warn('❌ already joining'); console.groupEnd(); return }
+
     setJoining(true)
-    if (isJoined) {
-      await supabase
-        .from('meeting_participants')
-        .delete()
-        .eq('meeting_id', id)
-        .eq('user_id', user.id)
-    } else {
-      await supabase
-        .from('meeting_participants')
-        .insert({ meeting_id: id, user_id: user.id, user_name: profile.name })
+    setJoinError('')
+
+    try {
+      if (isJoined) {
+        // ── 참가 취소 ──────────────────────────────────────
+        console.log('▶ DELETE 시도:', { meeting_id: id, user_id: user.id })
+
+        const { data: deleted, error, status } = await supabase
+          .from('meeting_participants')
+          .delete()
+          .eq('meeting_id', id)
+          .eq('user_id', user.id)
+          .select()   // 실제로 삭제된 행을 반환 → 빈 배열이면 RLS가 막은 것
+
+        console.log('DELETE 결과 → status:', status, '| deleted:', deleted, '| error:', error)
+
+        if (error) throw error
+
+        if (!deleted || deleted.length === 0) {
+          // 에러는 없지만 아무 행도 삭제되지 않음 = RLS가 막거나 행이 없는 상태
+          throw new Error(
+            `삭제된 행 없음 (status ${status}). ` +
+            'RLS 정책을 확인하거나 Supabase SQL Editor에서 mp_delete 정책을 재생성하세요.'
+          )
+        }
+
+        console.log('✅ 취소 성공, 삭제된 행:', deleted)
+
+      } else {
+        // ── 참가 신청 ──────────────────────────────────────
+        console.log('▶ INSERT 시도:', { meeting_id: id, user_id: user.id, user_name: profile.name })
+
+        const { data: inserted, error, status } = await supabase
+          .from('meeting_participants')
+          .insert({ meeting_id: id, user_id: user.id, user_name: profile.name })
+          .select()
+
+        console.log('INSERT 결과 → status:', status, '| inserted:', inserted, '| error:', error)
+
+        if (error) throw error
+        console.log('✅ 참가 성공')
+      }
+
+      await fetchMeeting()
+
+    } catch (err) {
+      console.error('❌ handleJoin 에러:', err)
+      setJoinError(err.message || '처리 중 오류가 발생했습니다')
+    } finally {
+      setJoining(false)
+      console.groupEnd()
     }
-    await fetchMeeting()
-    setJoining(false)
   }
 
   if (loading) {
@@ -175,6 +227,9 @@ export default function MeetingDetail() {
             </button>
             {!isJoined && !isFull && (
               <p className="join-hint">참가하면 내 프로필에서 확인할 수 있어요</p>
+            )}
+            {joinError && (
+              <p className="join-error">⚠️ {joinError}</p>
             )}
           </div>
 

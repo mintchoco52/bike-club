@@ -53,31 +53,80 @@ export default function Gallery() {
     if (!pendingFile || !uploadForm.title.trim()) return
     setUploading(true)
     setUploadError('')
+
+    // 세션에서 uid를 직접 확인
+    const { data: { session } } = await supabase.auth.getSession()
+    const uid = session?.user?.id
+
+    console.group('[handleUpload]')
+    console.log('uid:', uid, '| state user.id:', user?.id)
+
+    if (!uid) {
+      setUploadError('로그인 세션이 만료됐습니다. 다시 로그인해주세요.')
+      setUploading(false)
+      console.groupEnd()
+      return
+    }
+
+    // --- 1) Storage 업로드 ---
+    const ext = (pendingFile.name.split('.').pop() || 'jpg').toLowerCase()
+    const path = `${uid}/${Date.now()}.${ext}`
+    let publicUrl = ''
+
     try {
-      const ext = pendingFile.name.split('.').pop()
-      const path = `${user.id}/${Date.now()}.${ext}`
       const { error: storageErr } = await supabase.storage
         .from('photos')
         .upload(path, pendingFile, { contentType: pendingFile.type })
-      if (storageErr) throw storageErr
 
-      const { data: { publicUrl } } = supabase.storage.from('photos').getPublicUrl(path)
+      if (storageErr) {
+        console.error('[storage] error:', storageErr)
+        throw new Error(`스토리지 업로드 실패: ${storageErr.message}`)
+      }
 
-      const { error: dbErr } = await supabase.from('photos').insert({
+      publicUrl = supabase.storage.from('photos').getPublicUrl(path).data.publicUrl
+      console.log('[storage] 성공, url:', publicUrl)
+    } catch (err) {
+      setUploadError(err.message)
+      setUploading(false)
+      console.groupEnd()
+      return
+    }
+
+    // --- 2) photos 테이블 INSERT ---
+    try {
+      const payload = {
         url: publicUrl,
         title: uploadForm.title.trim(),
-        meeting_title: uploadForm.meetingTitle,
+        meeting_title: uploadForm.meetingTitle || '',
         uploader_name: profile?.name || '',
-        uploaded_by: user.id,
-      })
-      if (dbErr) throw dbErr
+        uploaded_by: uid,
+      }
+      console.log('[db] insert payload:', payload)
 
+      const { data, error: dbErr } = await supabase
+        .from('photos')
+        .insert(payload)
+        .select()
+        .single()
+
+      console.log('[db] result:', data, '| error:', dbErr)
+
+      if (dbErr) {
+        // 스토리지에 올라간 파일 롤백
+        await supabase.storage.from('photos').remove([path])
+        throw new Error(`DB 저장 실패 (${dbErr.code}): ${dbErr.message}`)
+      }
+
+      console.log('✅ 업로드 완료')
+      console.groupEnd()
       await fetchPhotos()
       setShowUploadModal(false)
       setPendingFile(null)
       setPendingPreview(null)
     } catch (err) {
-      setUploadError(err.message || '업로드 실패. Storage 버킷(photos)이 생성되어 있는지 확인하세요.')
+      console.error('❌ DB 저장 실패:', err)
+      console.groupEnd()
+      setUploadError(err.message)
     } finally {
       setUploading(false)
     }

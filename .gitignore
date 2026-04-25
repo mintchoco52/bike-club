@@ -9,9 +9,10 @@ dist/
 .env.local
 .env.*.local
 
-# Editor
+# Editor & tools
 .vscode/
 .idea/
+.claude/
 
 # OS
 .DS_Store

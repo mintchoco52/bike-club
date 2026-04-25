@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { NavLink, useNavigate, useLocation } from 'react-router-dom'
 import { useAuth } from '../contexts/AuthContext'
 
@@ -14,8 +14,28 @@ export default function Navbar() {
   const { user, profile, signOut } = useAuth()
   const navigate = useNavigate()
   const location = useLocation()
+  const menuRef = useRef(null)
 
   const isAuthPage = ['/login', '/register'].includes(location.pathname)
+
+  // 메뉴 외부 클릭 시 닫기
+  useEffect(() => {
+    if (!menuOpen) return
+    function handleOutside(e) {
+      if (menuRef.current && !menuRef.current.contains(e.target)) {
+        setMenuOpen(false)
+      }
+    }
+    document.addEventListener('mousedown', handleOutside)
+    document.addEventListener('touchstart', handleOutside)
+    return () => {
+      document.removeEventListener('mousedown', handleOutside)
+      document.removeEventListener('touchstart', handleOutside)
+    }
+  }, [menuOpen])
+
+  // 라우트 변경 시 메뉴 닫기
+  useEffect(() => { setMenuOpen(false) }, [location.pathname])
 
   async function handleLogout() {
     setMenuOpen(false)
@@ -24,7 +44,7 @@ export default function Navbar() {
   }
 
   return (
-    <nav className="navbar">
+    <nav className="navbar" ref={menuRef}>
       <div className="navbar-inner">
         <button className="navbar-logo" onClick={() => navigate(user ? '/' : '/login')}>
           <span className="logo-icon">🚴</span>
@@ -47,10 +67,23 @@ export default function Navbar() {
                   </NavLink>
                 </li>
               ))}
+              {/* 모바일 드롭다운 전용: 유저 정보 + 로그아웃 */}
+              <li className="nav-mobile-user">
+                <div className="nav-mobile-user-info">
+                  <div className="avatar-btn avatar-btn-sm">
+                    {profile?.avatar_url
+                      ? <img src={profile.avatar_url} alt="프로필" />
+                      : <span>{(profile?.name || user.email || '?')[0].toUpperCase()}</span>
+                    }
+                  </div>
+                  <span>{profile?.name || user.email}</span>
+                </div>
+                <button className="btn btn-outline btn-sm" onClick={handleLogout}>로그아웃</button>
+              </li>
             </ul>
 
             <div className="navbar-right">
-              <div className="navbar-user" onClick={() => { navigate('/profile'); setMenuOpen(false) }}>
+              <div className="navbar-user" onClick={() => navigate('/profile')}>
                 <div className="avatar-btn">
                   {profile?.avatar_url
                     ? <img src={profile.avatar_url} alt="프로필" />
@@ -73,6 +106,9 @@ export default function Navbar() {
           </>
         )}
       </div>
+
+      {/* 모바일 메뉴 열릴 때 배경 딤 처리 */}
+      {menuOpen && <div className="nav-backdrop" onClick={() => setMenuOpen(false)} />}
     </nav>
   )
 }
