@@ -2,6 +2,10 @@ import { useState, useEffect, useRef, useCallback } from 'react'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../contexts/AuthContext'
 
+function cleanFileName(name) {
+  return name.replace(/\.[^/.]+$/, '').replace(/[-_]/g, ' ').trim() || '사진'
+}
+
 export default function Gallery() {
   const { user, profile } = useAuth()
   const fileRef = useRef()
@@ -13,13 +17,15 @@ export default function Gallery() {
   const [selected, setSelected] = useState(null)
   const [filterBy, setFilterBy] = useState('전체')
 
+  // 다중 업로드 상태
   const [showUploadModal, setShowUploadModal] = useState(false)
-  const [pendingFile, setPendingFile] = useState(null)
-  const [pendingPreview, setPendingPreview] = useState(null)
-  const [uploadForm, setUploadForm] = useState({ title: '', meetingTitle: '' })
+  const [pendingFiles, setPendingFiles] = useState([]) // [{file, preview, title}]
+  const [uploadMeeting, setUploadMeeting] = useState('')
   const [uploading, setUploading] = useState(false)
+  const [uploadProgress, setUploadProgress] = useState(null) // {current, total}
   const [uploadError, setUploadError] = useState('')
 
+  // 댓글 상태
   const [comments, setComments] = useState([])
   const [commentText, setCommentText] = useState('')
   const [commentSubmitting, setCommentSubmitting] = useState(false)
@@ -57,35 +63,57 @@ export default function Gallery() {
     fetchComments(selected.id)
   }, [selected?.id, fetchComments])
 
-  // 댓글 추가 시 스크롤 아래로
+  // 댓글 추가 시 스크롤
   useEffect(() => {
     commentsEndRef.current?.scrollIntoView({ behavior: 'smooth' })
   }, [comments])
 
-  // ESC 키로 라이트박스 닫기
-  useEffect(() => {
-    if (!selected) return
-    function onKey(e) { if (e.key === 'Escape') setSelected(null) }
-    window.addEventListener('keydown', onKey)
-    return () => window.removeEventListener('keydown', onKey)
-  }, [selected])
-
   const filterTitles = ['전체', ...new Set(photos.map(p => p.meeting_title).filter(Boolean))]
   const filtered = filterBy === '전체' ? photos : photos.filter(p => p.meeting_title === filterBy)
 
+  // 라이트박스 현재 위치
+  const currentIdx = selected ? filtered.findIndex(p => p.id === selected.id) : -1
+  const hasPrev = currentIdx > 0
+  const hasNext = currentIdx < filtered.length - 1
+
+  // 키보드: ESC 닫기, ← → 탐색
+  useEffect(() => {
+    if (!selected) return
+    function onKey(e) {
+      if (e.key === 'Escape') setSelected(null)
+      if (e.key === 'ArrowLeft' && currentIdx > 0) setSelected(filtered[currentIdx - 1])
+      if (e.key === 'ArrowRight' && currentIdx < filtered.length - 1) setSelected(filtered[currentIdx + 1])
+    }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [selected, currentIdx, filtered])
+
+  // ── 파일 선택 (다중) ──────────────────────────────────
   function handleFileSelect(e) {
-    const file = e.target.files[0]
-    if (!file) return
-    setPendingFile(file)
-    setPendingPreview(URL.createObjectURL(file))
-    setUploadForm({ title: '', meetingTitle: meetings[0]?.title || '' })
+    const files = Array.from(e.target.files)
+    if (!files.length) return
+    setPendingFiles(files.map(f => ({
+      file: f,
+      preview: URL.createObjectURL(f),
+      title: cleanFileName(f.name),
+    })))
+    setUploadMeeting('')
     setUploadError('')
     setShowUploadModal(true)
     e.target.value = ''
   }
 
+  function closeUploadModal() {
+    pendingFiles.forEach(pf => URL.revokeObjectURL(pf.preview))
+    setPendingFiles([])
+    setShowUploadModal(false)
+    setUploadError('')
+    setUploadProgress(null)
+  }
+
+  // ── 업로드 (순차 처리) ────────────────────────────────
   async function handleUpload() {
-    if (!pendingFile || !uploadForm.title.trim()) return
+    if (!pendingFiles.length) return
     setUploading(true)
     setUploadError('')
 
@@ -97,45 +125,50 @@ export default function Gallery() {
       return
     }
 
-    const ext = (pendingFile.name.split('.').pop() || 'jpg').toLowerCase()
-    const path = `${uid}/${Date.now()}.${ext}`
-    let publicUrl = ''
+    let failCount = 0
+    for (let i = 0; i < pendingFiles.length; i++) {
+      const { file, title } = pendingFiles[i]
+      setUploadProgress({ current: i + 1, total: pendingFiles.length })
 
-    try {
-      const { error: storageErr } = await supabase.storage
-        .from('photos')
-        .upload(path, pendingFile, { contentType: pendingFile.type })
-      if (storageErr) throw new Error(`스토리지 업로드 실패: ${storageErr.message}`)
-      publicUrl = supabase.storage.from('photos').getPublicUrl(path).data.publicUrl
-    } catch (err) {
-      setUploadError(err.message)
-      setUploading(false)
-      return
+      const ext = (file.name.split('.').pop() || 'jpg').toLowerCase()
+      const path = `${uid}/${Date.now()}_${i}.${ext}`
+
+      try {
+        const { error: storageErr } = await supabase.storage
+          .from('photos')
+          .upload(path, file, { contentType: file.type })
+        if (storageErr) throw new Error(storageErr.message)
+
+        const publicUrl = supabase.storage.from('photos').getPublicUrl(path).data.publicUrl
+
+        const { error: dbErr } = await supabase.from('photos').insert({
+          url: publicUrl,
+          title: title.trim() || '사진',
+          meeting_title: uploadMeeting || '',
+          uploader_name: profile?.name || '',
+          uploaded_by: uid,
+        })
+        if (dbErr) {
+          await supabase.storage.from('photos').remove([path])
+          failCount++
+        }
+      } catch {
+        failCount++
+      }
     }
 
-    try {
-      const { error: dbErr } = await supabase.from('photos').insert({
-        url: publicUrl,
-        title: uploadForm.title.trim(),
-        meeting_title: uploadForm.meetingTitle || '',
-        uploader_name: profile?.name || '',
-        uploaded_by: uid,
-      })
-      if (dbErr) {
-        await supabase.storage.from('photos').remove([path])
-        throw new Error(`DB 저장 실패 (${dbErr.code}): ${dbErr.message}`)
-      }
-      await fetchPhotos()
-      setShowUploadModal(false)
-      setPendingFile(null)
-      setPendingPreview(null)
-    } catch (err) {
-      setUploadError(err.message)
-    } finally {
-      setUploading(false)
+    await fetchPhotos()
+    setUploading(false)
+    setUploadProgress(null)
+
+    if (failCount > 0) {
+      setUploadError(`${failCount}장 업로드에 실패했습니다.`)
+    } else {
+      closeUploadModal()
     }
   }
 
+  // ── 좋아요 ────────────────────────────────────────────
   async function handleLike(photoId) {
     if (!user) return
     const photo = photos.find(p => p.id === photoId)
@@ -147,31 +180,27 @@ export default function Gallery() {
     }
     await fetchPhotos()
     if (selected?.id === photoId) {
-      const { data } = await supabase.from('photos').select('*, photo_likes(user_id)').eq('id', photoId).single()
+      const { data } = await supabase.from('photos').select('*, photo_likes(user_id), photo_comments(id)').eq('id', photoId).single()
       setSelected(data)
     }
   }
 
+  // ── 사진 삭제 ─────────────────────────────────────────
   async function handleDelete(photoId) {
     if (selected?.id === photoId) setSelected(null)
     await supabase.from('photos').delete().eq('id', photoId).eq('uploaded_by', user.id)
     setPhotos(prev => prev.filter(p => p.id !== photoId))
   }
 
+  // ── 댓글 ─────────────────────────────────────────────
   async function handleAddComment(e) {
     e.preventDefault()
     if (!commentText.trim() || !user || commentSubmitting) return
     setCommentSubmitting(true)
     const { data } = await supabase
       .from('photo_comments')
-      .insert({
-        photo_id: selected.id,
-        user_id: user.id,
-        user_name: profile?.name || user.email,
-        content: commentText.trim(),
-      })
-      .select()
-      .single()
+      .insert({ photo_id: selected.id, user_id: user.id, user_name: profile?.name || user.email, content: commentText.trim() })
+      .select().single()
     if (data) setComments(prev => [...prev, data])
     setCommentText('')
     setCommentSubmitting(false)
@@ -182,6 +211,7 @@ export default function Gallery() {
     setComments(prev => prev.filter(c => c.id !== commentId))
   }
 
+  // ── 날짜 포맷 ─────────────────────────────────────────
   function formatDate(str) {
     return new Date(str).toLocaleDateString('ko-KR', { year: 'numeric', month: 'short', day: 'numeric' })
   }
@@ -207,14 +237,12 @@ export default function Gallery() {
             <p>함께한 순간들을 기록하고 공유해보세요</p>
           </div>
           <button className="btn btn-primary" onClick={() => fileRef.current.click()}>+ 사진 업로드</button>
-          <input ref={fileRef} type="file" accept="image/*" style={{ display: 'none' }} onChange={handleFileSelect} />
+          <input ref={fileRef} type="file" accept="image/*" multiple style={{ display: 'none' }} onChange={handleFileSelect} />
         </div>
 
         <div className="gallery-filter-bar">
           {filterTitles.map(t => (
-            <button key={t} className={`filter-tab ${filterBy === t ? 'active' : ''}`} onClick={() => setFilterBy(t)}>
-              {t}
-            </button>
+            <button key={t} className={`filter-tab ${filterBy === t ? 'active' : ''}`} onClick={() => setFilterBy(t)}>{t}</button>
           ))}
         </div>
 
@@ -263,43 +291,53 @@ export default function Gallery() {
         )}
       </div>
 
-      {/* Upload modal */}
+      {/* ── 다중 업로드 모달 ── */}
       {showUploadModal && (
-        <div className="modal-backdrop" onClick={() => setShowUploadModal(false)}>
-          <div className="modal" onClick={e => e.stopPropagation()}>
+        <div className="modal-backdrop" onClick={closeUploadModal}>
+          <div className="modal upload-modal" onClick={e => e.stopPropagation()}>
             <div className="modal-header">
-              <h3>사진 업로드</h3>
-              <button className="modal-close" onClick={() => setShowUploadModal(false)}>✕</button>
+              <h3>사진 업로드 {pendingFiles.length > 1 ? `(${pendingFiles.length}장)` : ''}</h3>
+              <button className="modal-close" onClick={closeUploadModal}>✕</button>
             </div>
-            {pendingPreview && <img src={pendingPreview} alt="미리보기" className="upload-preview" />}
             <div className="modal-body">
               {uploadError && <div className="auth-error" style={{ marginBottom: 12 }}>{uploadError}</div>}
-              <div className="form-group">
-                <label className="form-label">사진 제목 *</label>
-                <input className="form-input" type="text" placeholder="어떤 순간인가요?"
-                  value={uploadForm.title} onChange={e => setUploadForm(f => ({ ...f, title: e.target.value }))}
-                  maxLength={50} autoFocus />
+              <div className="upload-grid">
+                {pendingFiles.map((pf, i) => (
+                  <div key={i} className="upload-grid-item">
+                    <img src={pf.preview} alt="" className="upload-grid-thumb" />
+                    <input
+                      className="form-input upload-grid-title"
+                      value={pf.title}
+                      onChange={e => setPendingFiles(prev => prev.map((f, j) => j === i ? { ...f, title: e.target.value } : f))}
+                      placeholder="제목"
+                      maxLength={50}
+                    />
+                  </div>
+                ))}
               </div>
-              <div className="form-group">
+              <div className="form-group" style={{ marginTop: 16 }}>
                 <label className="form-label">관련 모임</label>
-                <select className="form-input" value={uploadForm.meetingTitle}
-                  onChange={e => setUploadForm(f => ({ ...f, meetingTitle: e.target.value }))}>
+                <select className="form-input" value={uploadMeeting} onChange={e => setUploadMeeting(e.target.value)}>
                   <option value="">선택 안함</option>
                   {meetings.map(m => <option key={m.id} value={m.title}>{m.title}</option>)}
                 </select>
               </div>
             </div>
             <div className="modal-footer">
-              <button className="btn btn-outline" onClick={() => setShowUploadModal(false)}>취소</button>
-              <button className="btn btn-primary" onClick={handleUpload} disabled={!uploadForm.title.trim() || uploading}>
-                {uploading ? <span className="btn-spinner" /> : '업로드'}
+              <button className="btn btn-outline" onClick={closeUploadModal} disabled={uploading}>취소</button>
+              <button className="btn btn-primary" onClick={handleUpload} disabled={uploading}>
+                {uploading && uploadProgress
+                  ? `${uploadProgress.current} / ${uploadProgress.total} 업로드 중...`
+                  : uploading
+                    ? <span className="btn-spinner" />
+                    : `${pendingFiles.length}장 업로드`}
               </button>
             </div>
           </div>
         </div>
       )}
 
-      {/* Lightbox */}
+      {/* ── 라이트박스 ── */}
       {selected && (() => {
         const isLiked = selected.photo_likes?.some(l => l.user_id === user?.id)
         const likeCount = selected.photo_likes?.length || 0
@@ -308,9 +346,18 @@ export default function Gallery() {
             <div className="lightbox" onClick={e => e.stopPropagation()}>
               <button className="modal-close lightbox-close" onClick={() => setSelected(null)}>✕</button>
 
-              {/* 좌측: 사진 */}
+              {/* 좌측: 사진 + 화살표 */}
               <div className="lightbox-photo">
+                {hasPrev && (
+                  <button className="lightbox-nav lightbox-nav-prev" onClick={e => { e.stopPropagation(); setSelected(filtered[currentIdx - 1]) }}>‹</button>
+                )}
                 <img src={selected.url} alt={selected.title} className="lightbox-img" />
+                {hasNext && (
+                  <button className="lightbox-nav lightbox-nav-next" onClick={e => { e.stopPropagation(); setSelected(filtered[currentIdx + 1]) }}>›</button>
+                )}
+                {filtered.length > 1 && (
+                  <span className="lightbox-counter">{currentIdx + 1} / {filtered.length}</span>
+                )}
               </div>
 
               {/* 우측: 정보 + 댓글 */}
@@ -363,11 +410,7 @@ export default function Gallery() {
                         onChange={e => setCommentText(e.target.value)}
                         maxLength={200}
                       />
-                      <button
-                        className="comment-submit"
-                        type="submit"
-                        disabled={!commentText.trim() || commentSubmitting}
-                      >
+                      <button className="comment-submit" type="submit" disabled={!commentText.trim() || commentSubmitting}>
                         {commentSubmitting ? <span className="btn-spinner" style={{ width: 14, height: 14 }} /> : '전송'}
                       </button>
                     </form>

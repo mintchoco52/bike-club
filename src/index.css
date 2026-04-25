@@ -709,6 +709,29 @@ select.form-input { cursor: pointer; }
   background: var(--bg);
 }
 
+/* 다중 업로드 모달 */
+.upload-modal { max-width: 580px; }
+.upload-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 10px;
+  max-height: 340px;
+  overflow-y: auto;
+  padding: 2px;
+}
+.upload-grid-item { display: flex; flex-direction: column; gap: 6px; }
+.upload-grid-thumb {
+  width: 100%;
+  aspect-ratio: 1;
+  object-fit: cover;
+  border-radius: var(--radius-xs);
+  background: var(--bg);
+}
+.upload-grid-title {
+  font-size: 0.78rem !important;
+  padding: 5px 8px !important;
+}
+
 /* Lightbox */
 .lightbox-backdrop {
   background: rgba(0,0,0,0.88) !important;
@@ -752,6 +775,37 @@ select.form-input { cursor: pointer; }
   justify-content: center;
   padding: 48px 20px 20px;
   overflow: hidden;
+  position: relative;
+}
+.lightbox-nav {
+  position: absolute;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 44px; height: 44px;
+  background: rgba(0,0,0,0.55);
+  color: white;
+  border-radius: 50%;
+  font-size: 1.6rem;
+  line-height: 1;
+  display: flex; align-items: center; justify-content: center;
+  border: 1px solid rgba(255,255,255,0.2);
+  z-index: 10;
+  transition: background 0.2s;
+}
+.lightbox-nav:hover { background: rgba(255,255,255,0.2); }
+.lightbox-nav-prev { left: 14px; }
+.lightbox-nav-next { right: 14px; }
+.lightbox-counter {
+  position: absolute;
+  bottom: 12px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: rgba(0,0,0,0.55);
+  color: rgba(255,255,255,0.85);
+  font-size: 0.78rem;
+  padding: 3px 10px;
+  border-radius: 20px;
+  pointer-events: none;
 }
 .lightbox-img {
   max-width: 100%;
