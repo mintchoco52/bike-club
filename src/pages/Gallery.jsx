@@ -38,6 +38,14 @@ export default function Gallery() {
   const filterTitles = ['전체', ...new Set(photos.map(p => p.meeting_title).filter(Boolean))]
   const filtered = filterBy === '전체' ? photos : photos.filter(p => p.meeting_title === filterBy)
 
+  // ESC 키로 라이트박스 닫기
+  useEffect(() => {
+    if (!selected) return
+    function onKey(e) { if (e.key === 'Escape') setSelected(null) }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [selected])
+
   function handleFileSelect(e) {
     const file = e.target.files[0]
     if (!file) return
@@ -194,11 +202,11 @@ export default function Gallery() {
           </div>
         ) : (
           <div className="gallery-masonry">
-            {filtered.map((photo, i) => {
+            {filtered.map((photo) => {
               const isLiked = photo.photo_likes?.some(l => l.user_id === user?.id)
               const likeCount = photo.photo_likes?.length || 0
               return (
-                <div key={photo.id} className={`gallery-item ${i % 5 === 0 || i % 5 === 3 ? 'tall' : ''}`}>
+                <div key={photo.id} className="gallery-item">
                   <img src={photo.url} alt={photo.title} className="gallery-img" loading="lazy" onClick={() => setSelected(photo)} />
                   <div className="gallery-item-overlay">
                     <div className="gallery-item-info">
@@ -206,11 +214,11 @@ export default function Gallery() {
                       <p className="gallery-item-meta">{photo.uploader_name} · {formatDate(photo.created_at)}</p>
                     </div>
                     <div className="gallery-item-actions">
-                      <button className={`like-btn ${isLiked ? 'liked' : ''}`} onClick={() => handleLike(photo.id)}>
+                      <button className={`like-btn ${isLiked ? 'liked' : ''}`} onClick={e => { e.stopPropagation(); handleLike(photo.id) }}>
                         {isLiked ? '❤️' : '🤍'} {likeCount}
                       </button>
                       {photo.uploaded_by === user?.id && (
-                        <button className="delete-btn" onClick={() => handleDelete(photo.id)} title="삭제">🗑</button>
+                        <button className="delete-btn" onClick={e => { e.stopPropagation(); handleDelete(photo.id) }} title="삭제">🗑</button>
                       )}
                     </div>
                   </div>
@@ -262,10 +270,12 @@ export default function Gallery() {
         const isLiked = selected.photo_likes?.some(l => l.user_id === user?.id)
         const likeCount = selected.photo_likes?.length || 0
         return (
-          <div className="modal-backdrop" onClick={() => setSelected(null)}>
+          <div className="modal-backdrop lightbox-backdrop" onClick={() => setSelected(null)}>
             <div className="lightbox" onClick={e => e.stopPropagation()}>
               <button className="modal-close lightbox-close" onClick={() => setSelected(null)}>✕</button>
-              <img src={selected.url} alt={selected.title} className="lightbox-img" />
+              <div className="lightbox-img-wrap">
+                <img src={selected.url} alt={selected.title} className="lightbox-img" />
+              </div>
               <div className="lightbox-info">
                 <div>
                   <h3>{selected.title}</h3>
