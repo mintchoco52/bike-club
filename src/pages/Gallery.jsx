@@ -27,7 +27,7 @@ export default function Gallery() {
   const fetchPhotos = useCallback(async () => {
     const { data } = await supabase
       .from('photos')
-      .select('*, photo_likes(user_id)')
+      .select('*, photo_likes(user_id), photo_comments(id)')
       .order('created_at', { ascending: false })
     setPhotos(data || [])
   }, [])
@@ -237,6 +237,7 @@ export default function Gallery() {
             {filtered.map((photo) => {
               const isLiked = photo.photo_likes?.some(l => l.user_id === user?.id)
               const likeCount = photo.photo_likes?.length || 0
+              const commentCount = photo.photo_comments?.length || 0
               return (
                 <div key={photo.id} className="gallery-item" onClick={() => setSelected(photo)}>
                   <img src={photo.url} alt={photo.title} className="gallery-img" loading="lazy" />
@@ -249,6 +250,7 @@ export default function Gallery() {
                       <button className={`like-btn ${isLiked ? 'liked' : ''}`} onClick={e => { e.stopPropagation(); handleLike(photo.id) }}>
                         {isLiked ? '❤️' : '🤍'} {likeCount}
                       </button>
+                      <span className="comment-count-badge">💬 {commentCount}</span>
                       {photo.uploaded_by === user?.id && (
                         <button className="delete-btn" onClick={e => { e.stopPropagation(); handleDelete(photo.id) }} title="삭제">🗑</button>
                       )}
