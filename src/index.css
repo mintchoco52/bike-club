@@ -697,38 +697,46 @@ select.form-input { cursor: pointer; }
 
 /* Lightbox */
 .lightbox-backdrop {
-  background: rgba(0,0,0,0.92) !important;
-  backdrop-filter: none !important;
-  padding: 0 !important;
-  align-items: stretch !important;
+  background: rgba(0,0,0,0.88) !important;
+  backdrop-filter: blur(3px) !important;
+  padding: 20px !important;
 }
 .lightbox {
   position: relative;
-  background: #0a0a0a;
-  width: 100%;
-  height: 100%;
   display: flex;
-  flex-direction: column;
+  flex-direction: row;
+  width: 100%;
+  max-width: 1100px;
+  height: calc(100vh - 80px);
+  max-height: 820px;
+  background: #111;
+  border-radius: var(--radius);
+  overflow: hidden;
   animation: modal-in 0.2s ease;
 }
 .lightbox-close {
   position: absolute;
-  top: 14px; right: 14px;
-  z-index: 10;
-  background: rgba(0,0,0,0.6);
+  top: 12px; right: 12px;
+  z-index: 20;
+  background: rgba(0,0,0,0.55);
   color: white;
-  width: 38px; height: 38px;
+  width: 36px; height: 36px;
   border-radius: 50%;
-  font-size: 1.1rem;
+  font-size: 1rem;
   border: 1px solid rgba(255,255,255,0.15);
+  display: flex; align-items: center; justify-content: center;
 }
-.lightbox-close:hover { background: rgba(255,255,255,0.15); }
-.lightbox-img-wrap {
+.lightbox-close:hover { background: rgba(255,255,255,0.2); }
+
+/* 좌측: 사진 영역 */
+.lightbox-photo {
   flex: 1;
+  min-width: 0;
+  background: #0a0a0a;
   display: flex;
   align-items: center;
   justify-content: center;
-  padding: 56px 20px 16px;
+  padding: 48px 20px 20px;
   overflow: hidden;
 }
 .lightbox-img {
@@ -738,19 +746,142 @@ select.form-input { cursor: pointer; }
   display: block;
   border-radius: 6px;
 }
+
+/* 우측: 패널 */
+.lightbox-panel {
+  width: 320px;
+  flex-shrink: 0;
+  background: var(--surface);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  border-left: 1px solid var(--border);
+}
 .lightbox-info {
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   justify-content: space-between;
-  padding: 14px 20px;
-  background: rgba(255,255,255,0.05);
-  border-top: 1px solid rgba(255,255,255,0.08);
+  padding: 18px 16px 14px;
+  border-bottom: 1px solid var(--border);
   flex-shrink: 0;
-  gap: 12px;
+  gap: 10px;
 }
-.lightbox-info h3 { font-size: 0.98rem; font-weight: 700; margin-bottom: 3px; color: white; }
-.lightbox-meeting { font-size: 0.83rem; color: rgba(255,255,255,0.6); margin-bottom: 2px; }
-.lightbox-meta { font-size: 0.8rem; color: rgba(255,255,255,0.5); }
+.lightbox-info-text { min-width: 0; }
+.lightbox-info h3 { font-size: 0.98rem; font-weight: 700; margin-bottom: 4px; word-break: break-word; }
+.lightbox-meeting { font-size: 0.82rem; color: var(--text-muted); margin-bottom: 3px; }
+.lightbox-meta { font-size: 0.8rem; color: var(--text-muted); }
+
+/* 댓글 영역 */
+.lightbox-comments {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+.comments-title {
+  font-size: 0.84rem;
+  font-weight: 600;
+  color: var(--text-muted);
+  padding: 10px 16px 6px;
+  flex-shrink: 0;
+}
+.comments-list {
+  flex: 1;
+  overflow-y: auto;
+  padding: 4px 16px 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+.comments-empty {
+  color: var(--text-muted);
+  font-size: 0.88rem;
+  text-align: center;
+  margin-top: 32px;
+}
+.comments-login-hint {
+  font-size: 0.83rem;
+  color: var(--text-muted);
+  text-align: center;
+  padding: 14px 16px;
+  border-top: 1px solid var(--border);
+  flex-shrink: 0;
+}
+.comment-item {
+  display: flex;
+  gap: 10px;
+  align-items: flex-start;
+}
+.comment-avatar {
+  width: 30px; height: 30px;
+  border-radius: 50%;
+  background: var(--primary);
+  color: white;
+  font-size: 0.78rem;
+  font-weight: 700;
+  display: flex; align-items: center; justify-content: center;
+  flex-shrink: 0;
+}
+.comment-body { flex: 1; min-width: 0; }
+.comment-header {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: 3px;
+  flex-wrap: wrap;
+}
+.comment-author { font-size: 0.82rem; font-weight: 700; color: var(--text); }
+.comment-time { font-size: 0.75rem; color: var(--text-muted); }
+.comment-delete {
+  margin-left: auto;
+  font-size: 0.72rem;
+  color: var(--text-muted);
+  padding: 1px 4px;
+  border-radius: 3px;
+  opacity: 0;
+  transition: opacity var(--transition);
+}
+.comment-item:hover .comment-delete { opacity: 1; }
+.comment-delete:hover { background: #fee2e2; color: var(--danger); }
+.comment-text { font-size: 0.88rem; color: var(--text); line-height: 1.45; word-break: break-word; }
+
+/* 댓글 입력 폼 */
+.comment-form {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 12px;
+  border-top: 1px solid var(--border);
+  flex-shrink: 0;
+  background: var(--surface);
+}
+.comment-my-avatar { width: 26px !important; height: 26px !important; font-size: 0.72rem !important; }
+.comment-input {
+  flex: 1;
+  border: 1.5px solid var(--border);
+  border-radius: 20px;
+  padding: 7px 14px;
+  font-size: 0.85rem;
+  outline: none;
+  background: var(--bg);
+  transition: border-color var(--transition);
+  min-width: 0;
+}
+.comment-input:focus { border-color: var(--primary); background: var(--surface); }
+.comment-submit {
+  padding: 7px 13px;
+  background: var(--primary);
+  color: white;
+  border-radius: 20px;
+  font-size: 0.82rem;
+  font-weight: 600;
+  flex-shrink: 0;
+  transition: background var(--transition);
+  display: flex; align-items: center; justify-content: center;
+  min-width: 44px;
+}
+.comment-submit:disabled { background: var(--border); color: var(--text-muted); }
+.comment-submit:not(:disabled):hover { background: var(--primary-hover); }
 
 /* ===== AUTH PAGES ===== */
 .auth-page {
@@ -928,6 +1059,23 @@ select.form-input { cursor: pointer; }
   .profile-hero-card { padding: 28px 20px; }
   .profile-stats { gap: 24px; }
   .gallery-masonry { columns: 2; }
+  /* 모바일 라이트박스: 세로 레이아웃 */
+  .lightbox-backdrop { padding: 0 !important; align-items: stretch !important; }
+  .lightbox {
+    flex-direction: column;
+    max-width: 100%;
+    height: 100%;
+    max-height: 100%;
+    border-radius: 0;
+  }
+  .lightbox-photo {
+    flex: 0 0 45vh;
+    padding: 44px 16px 12px;
+  }
+  .lightbox-panel {
+    width: 100%;
+    flex: 1;
+  }
 }
 
 @media (max-width: 480px) {
@@ -936,4 +1084,5 @@ select.form-input { cursor: pointer; }
   .toolbar { flex-direction: column; align-items: stretch; }
   .profile-photo-grid { grid-template-columns: repeat(3, 1fr); }
   .gallery-masonry { columns: 1; }
+  .lightbox-photo { flex: 0 0 38vh; }
 }
