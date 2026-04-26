@@ -1,0 +1,21 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+  <rect width="512" height="512" rx="96" fill="#2563eb"/>
+  <g transform="translate(256,256)">
+    <!-- 뒷바퀴 -->
+    <circle cx="-90" cy="70" r="75" fill="none" stroke="white" stroke-width="22"/>
+    <!-- 앞바퀴 -->
+    <circle cx="90" cy="70" r="75" fill="none" stroke="white" stroke-width="22"/>
+    <!-- 프레임 -->
+    <polyline points="-90,70 -30,-40 50,-40 90,70" fill="none" stroke="white" stroke-width="22" stroke-linecap="round" stroke-linejoin="round"/>
+    <line x1="-30" y1="-40" x2="-90" y2="70" stroke="white" stroke-width="22" stroke-linecap="round"/>
+    <!-- 핸들 -->
+    <line x1="50" y1="-40" x2="90" y2="70" stroke="white" stroke-width="22" stroke-linecap="round"/>
+    <line x1="40" y1="-60" x2="70" y2="-60" stroke="white" stroke-width="22" stroke-linecap="round"/>
+    <!-- 안장 -->
+    <line x1="-50" y1="-60" x2="-10" y2="-60" stroke="white" stroke-width="22" stroke-linecap="round"/>
+    <line x1="-30" y1="-40" x2="-30" y2="-60" stroke="white" stroke-width="22" stroke-linecap="round"/>
+    <!-- 페달 -->
+    <circle cx="-10" cy="20" r="14" fill="white"/>
+    <line x1="-30" y1="20" x2="10" y2="20" stroke="white" stroke-width="18" stroke-linecap="round"/>
+  </g>
+</svg>
