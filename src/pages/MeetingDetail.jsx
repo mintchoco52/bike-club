@@ -4,6 +4,7 @@ import { MapContainer, TileLayer, Marker, Popup } from 'react-leaflet'
 import L from 'leaflet'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../contexts/AuthContext'
+import { initKakao } from '../lib/kakao'
 import { getCyclingPhoto } from '../lib/cyclingPhotos'
 
 delete L.Icon.Default.prototype._getIconUrl
@@ -123,31 +124,41 @@ export default function MeetingDetail() {
     }
   }
 
-  async function handleKakaoShare() {
+  function handleKakaoShare() {
+    const ok = initKakao()
+    console.log('[Kakao] initKakao 결과:', ok, '| Kakao.Share:', !!window.Kakao?.Share)
+    if (!ok || !window.Kakao?.Share) {
+      alert('카카오 SDK 초기화 실패. 콘솔을 확인해주세요.')
+      return
+    }
+
     const pageUrl = `https://bike-club-teal.vercel.app/meeting/${meeting.id}`
-    const shareText = `${meeting.title}\n${formatDate(meeting.date)} · ${meeting.location}\n${pageUrl}`
+    const description = `📅 ${formatDate(meeting.date)} ${meeting.time?.slice(0, 5) || ''} · 📍 ${meeting.location} · 👥 ${participants.length}/${meeting.max_participants}명`
 
-    // 1. 카카오톡 딥링크 (모바일)
-    const kakaoDeepLink = `kakaotalk://msg/send?text=${encodeURIComponent(shareText)}`
-    window.location.href = kakaoDeepLink
+    const imageUrl = meeting.image || 'https://bike-club-teal.vercel.app/pwa-512x512.png'
 
-    // 2. 딥링크 실패 시 (PC/미설치) → Web Share API → 클립보드 복사
-    setTimeout(async () => {
-      if (navigator.share) {
-        try {
-          await navigator.share({ title: meeting.title, url: pageUrl })
-          return
-        } catch (err) {
-          if (err.name === 'AbortError') return
-        }
-      }
-      try {
-        await navigator.clipboard.writeText(pageUrl)
-        alert('링크가 복사됐습니다. 카카오톡에 붙여넣기 해주세요.')
-      } catch {
-        prompt('아래 링크를 복사해서 카카오톡에 붙여넣기 해주세요.', pageUrl)
-      }
-    }, 1500)
+    try {
+      window.Kakao.Share.sendDefault({
+        objectType: 'feed',
+        content: {
+          title: meeting.title,
+          description,
+          imageUrl,
+          imageWidth: 800,
+          imageHeight: 400,
+          link: { mobileWebUrl: pageUrl, webUrl: pageUrl },
+        },
+        buttons: [
+          {
+            title: '모임 자세히 보기',
+            link: { mobileWebUrl: pageUrl, webUrl: pageUrl },
+          },
+        ],
+      })
+    } catch (err) {
+      console.error('[Kakao] 공유 실패:', err)
+      alert(`카카오 공유 오류: ${err.message}`)
+    }
   }
 
   if (loading) {
