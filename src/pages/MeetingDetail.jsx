@@ -129,14 +129,12 @@ export default function MeetingDetail() {
     if (!window.Kakao?.Share) return
 
     const pageUrl = window.location.href
-    const imageUrl = meeting.image || getCyclingPhoto(meeting.id, { width: 800, height: 400 })
 
     window.Kakao.Share.sendDefault({
       objectType: 'feed',
       content: {
         title: meeting.title,
         description: `${formatDate(meeting.date)}  ·  📍 ${meeting.location}`,
-        imageUrl,
         link: { mobileWebUrl: pageUrl, webUrl: pageUrl },
       },
       itemContent: {
