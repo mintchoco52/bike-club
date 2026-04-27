@@ -1,4 +1,5 @@
-const PHOTOS = Array.from({ length: 17 }, (_, i) => `/images/bike${i + 1}.jpg`)
+const BASE = 'https://gkvqjbldrxsglbgfnfai.supabase.co/storage/v1/object/public/photos'
+const PHOTOS = Array.from({ length: 17 }, (_, i) => `${BASE}/bike${i + 1}.jpg`)
 
 export function getCyclingPhoto(seed) {
   let hash = 0
