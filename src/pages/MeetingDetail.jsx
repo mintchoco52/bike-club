@@ -133,27 +133,10 @@ export default function MeetingDetail() {
     }
 
     const pageUrl = `https://bike-club-teal.vercel.app/meeting/${meeting.id}`
-    const description = `📅 ${formatDate(meeting.date)} ${meeting.time?.slice(0, 5) || ''} · 📍 ${meeting.location} · 👥 ${participants.length}/${meeting.max_participants}명`
-
-    const imageUrl = meeting.image || 'https://bike-club-teal.vercel.app/pwa-512x512.png'
 
     try {
-      window.Kakao.Share.sendDefault({
-        objectType: 'feed',
-        content: {
-          title: meeting.title,
-          description,
-          imageUrl,
-          imageWidth: 800,
-          imageHeight: 400,
-          link: { mobileWebUrl: pageUrl, webUrl: pageUrl },
-        },
-        buttons: [
-          {
-            title: '모임 자세히 보기',
-            link: { mobileWebUrl: pageUrl, webUrl: pageUrl },
-          },
-        ],
+      window.Kakao.Share.sendScrap({
+        requestUrl: pageUrl,
       })
     } catch (err) {
       console.error('[Kakao] 공유 실패:', err)
