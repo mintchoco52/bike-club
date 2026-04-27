@@ -135,12 +135,17 @@ export default function MeetingDetail() {
     const pageUrl = window.location.href
     const description = `📅 ${formatDate(meeting.date)} ${meeting.time?.slice(0, 5) || ''} · 📍 ${meeting.location} · 👥 ${participants.length}/${meeting.max_participants}명`
 
+    const imageUrl = meeting.image || 'https://bike-club-teal.vercel.app/pwa-512x512.png'
+
     try {
       window.Kakao.Share.sendDefault({
         objectType: 'feed',
         content: {
           title: meeting.title,
           description,
+          imageUrl,
+          imageWidth: 800,
+          imageHeight: 400,
           link: { mobileWebUrl: pageUrl, webUrl: pageUrl },
         },
         buttons: [
