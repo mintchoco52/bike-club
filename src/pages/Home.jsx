@@ -16,15 +16,18 @@ function MeetingCard({ meeting, userId, onJoinToggle }) {
   const isJoined = meeting.meeting_participants?.some(p => p.user_id === userId)
   const isFull = participantCount >= meeting.max_participants
 
+  const imgSrc = meeting.image || getCyclingPhoto(meeting.id)
+  console.log(`[MeetingCard] id=${meeting.id} imgSrc=${imgSrc}`)
+
   return (
     <article className="meeting-card" onClick={() => navigate(`/meeting/${meeting.id}`)}>
       <div className="card-img-wrap">
         <img
-          src={meeting.image || getCyclingPhoto(meeting.id, { width: 600, height: 300 })}
+          src={imgSrc}
           alt={meeting.title}
           className="card-img"
           loading="lazy"
-          onError={e => { e.target.onerror = null; e.target.src = `https://picsum.photos/seed/${meeting.id}/600/300` }}
+          onError={e => { console.error(`[MeetingCard] 이미지 로드 실패: ${e.target.src}`) }}
         />
         <span className={`difficulty-badge ${DIFFICULTY_COLOR[meeting.difficulty] || 'badge-green'}`}>
           {meeting.difficulty}
