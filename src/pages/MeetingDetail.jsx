@@ -4,6 +4,7 @@ import { MapContainer, TileLayer, Marker, Popup } from 'react-leaflet'
 import L from 'leaflet'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../contexts/AuthContext'
+import { initKakao } from '../lib/kakao'
 
 delete L.Icon.Default.prototype._getIconUrl
 L.Icon.Default.mergeOptions({
@@ -122,6 +123,39 @@ export default function MeetingDetail() {
     }
   }
 
+  function handleKakaoShare() {
+    initKakao()
+    if (!window.Kakao?.Share) return
+
+    const pageUrl = window.location.href
+    const imageUrl = meeting.image || `https://picsum.photos/seed/${meeting.id}/600/300`
+
+    window.Kakao.Share.sendDefault({
+      objectType: 'feed',
+      content: {
+        title: meeting.title,
+        description: `${formatDate(meeting.date)}  ·  📍 ${meeting.location}`,
+        imageUrl,
+        link: { mobileWebUrl: pageUrl, webUrl: pageUrl },
+      },
+      itemContent: {
+        profileText: '기선자 모임',
+        items: [
+          { item: '📅 날짜', itemOp: `${formatDate(meeting.date)} ${meeting.time?.slice(0, 5) || ''}` },
+          { item: '📍 장소', itemOp: meeting.location },
+          { item: '🚴 거리', itemOp: meeting.distance || '-' },
+          { item: '👥 참가', itemOp: `${participants.length} / ${meeting.max_participants}명` },
+        ],
+      },
+      buttons: [
+        {
+          title: '모임 자세히 보기',
+          link: { mobileWebUrl: pageUrl, webUrl: pageUrl },
+        },
+      ],
+    })
+  }
+
   if (loading) {
     return (
       <div className="page center-page">
@@ -231,6 +265,13 @@ export default function MeetingDetail() {
             {joinError && (
               <p className="join-error">⚠️ {joinError}</p>
             )}
+
+            <button className="kakao-share-btn" onClick={handleKakaoShare}>
+              <svg width="18" height="18" viewBox="0 0 18 18" fill="none">
+                <path d="M9 1.5C4.86 1.5 1.5 4.19 1.5 7.5c0 2.1 1.26 3.94 3.15 5.04L3.9 15l3.21-1.73c.61.1 1.25.16 1.89.16 4.14 0 7.5-2.69 7.5-6s-3.36-6-7.5-6z" fill="#000000"/>
+              </svg>
+              카카오톡으로 공유
+            </button>
           </div>
 
           <div className="detail-card map-card">

@@ -473,6 +473,22 @@ select.form-input { cursor: pointer; }
 .join-progress-fill { height: 100%; background: var(--primary); border-radius: 4px; transition: width 0.4s ease; }
 .join-hint { text-align: center; font-size: 0.78rem; color: var(--text-muted); margin-top: 10px; }
 .join-error { text-align: center; font-size: 0.82rem; color: var(--danger); margin-top: 10px; }
+.kakao-share-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  width: 100%;
+  padding: 12px;
+  margin-top: 12px;
+  background: #FEE500;
+  color: #191919;
+  border-radius: var(--radius-xs);
+  font-size: 0.92rem;
+  font-weight: 700;
+  transition: background var(--transition), transform var(--transition);
+}
+.kakao-share-btn:hover { background: #F0D900; transform: translateY(-1px); }
 .map-card { padding: 24px; }
 .map-location-label { font-size: 0.88rem; color: var(--text-muted); margin-bottom: 14px; }
 .map-container { height: 260px; border-radius: 8px; overflow: hidden; }
