@@ -125,26 +125,22 @@ export default function MeetingDetail() {
   }
 
   function handleKakaoShare() {
-    initKakao()
-    if (!window.Kakao?.Share) return
+    const ok = initKakao()
+    console.log('[Kakao] initKakao 결과:', ok, '| Kakao.Link:', !!window.Kakao?.Link)
+    if (!ok || !window.Kakao?.Link) {
+      alert('카카오 SDK 초기화 실패. 콘솔을 확인해주세요.')
+      return
+    }
 
     const pageUrl = window.location.href
+    const description = `📅 ${formatDate(meeting.date)} ${meeting.time?.slice(0, 5) || ''}\n📍 ${meeting.location}\n👥 ${participants.length}/${meeting.max_participants}명`
 
-    window.Kakao.Share.sendDefault({
+    window.Kakao.Link.sendDefault({
       objectType: 'feed',
       content: {
         title: meeting.title,
-        description: `${formatDate(meeting.date)}  ·  📍 ${meeting.location}`,
+        description,
         link: { mobileWebUrl: pageUrl, webUrl: pageUrl },
-      },
-      itemContent: {
-        profileText: '기선자 모임',
-        items: [
-          { item: '📅 날짜', itemOp: `${formatDate(meeting.date)} ${meeting.time?.slice(0, 5) || ''}` },
-          { item: '📍 장소', itemOp: meeting.location },
-          { item: '🚴 거리', itemOp: meeting.distance || '-' },
-          { item: '👥 참가', itemOp: `${participants.length} / ${meeting.max_participants}명` },
-        ],
       },
       buttons: [
         {
