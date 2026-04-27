@@ -1,16 +1,17 @@
+// Unsplash 사이클링 검색 페이지에서 직접 확인된 자전거 사진 ID
 const CYCLING_PHOTOS = [
-  'photo-1558618666-fcd25c85cd64',
-  'photo-1502781252888-9143e1f71b72',
+  'photo-1452573992436-6d508f200b30',
   'photo-1541625602330-2277a4c46182',
-  'photo-1571068316344-75bc098b0077',
+  'photo-1534787238916-9ba6764efd4f',
+  'photo-1681295692638-97ace05f56b4',
   'photo-1517649763962-0c623066013b',
-  'photo-1519583272095-6433daf26b6e',
-  'photo-1534787238-3c40b0dd1404',
-  'photo-1551698618-1dfe5d97d256',
-  'photo-1504280390367-361c6d9f38f4',
-  'photo-1541746972996-4e0b0f43e02a',
-  'photo-1576858574244-84c5e290ab5a',
-  'photo-1526888935184-a82d2a4b7e67',
+  'photo-1631276893368-554b60393efb',
+  'photo-1471506480208-91b3a4cc78be',
+  'photo-1601625193660-86f2807b024b',
+  'photo-1606224547099-b15c94ca5ef2',
+  'photo-1444491741275-3747c53c99b4',
+  'photo-1600403477955-2b8c2cfab221',
+  'photo-1632050592122-6b730e1ac63f',
 ]
 
 export function getCyclingPhoto(seed, { width = 600, height = 300 } = {}) {
