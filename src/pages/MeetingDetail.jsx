@@ -5,6 +5,7 @@ import L from 'leaflet'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../contexts/AuthContext'
 import { initKakao } from '../lib/kakao'
+import { getCyclingPhoto } from '../lib/cyclingPhotos'
 
 delete L.Icon.Default.prototype._getIconUrl
 L.Icon.Default.mergeOptions({
@@ -12,31 +13,6 @@ L.Icon.Default.mergeOptions({
   iconUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon.png',
   shadowUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-shadow.png',
 })
-
-// 자전거 관련 Unsplash 사진 ID 목록
-const CYCLING_PHOTOS = [
-  'photo-1558618666-fcd25c85cd64',
-  'photo-1502781252888-9143e1f71b72',
-  'photo-1541625602330-2277a4c46182',
-  'photo-1571068316344-75bc098b0077',
-  'photo-1517649763962-0c623066013b',
-  'photo-1519583272095-6433daf26b6e',
-  'photo-1534787238-3c40b0dd1404',
-  'photo-1551698618-1dfe5d97d256',
-  'photo-1504280390367-361c6d9f38f4',
-  'photo-1541746972996-4e0b0f43e02a',
-  'photo-1576858574244-84c5e290ab5a',
-  'photo-1526888935184-a82d2a4b7e67',
-]
-
-function getCyclingPhoto(seed) {
-  let hash = 0
-  for (let i = 0; i < seed.length; i++) {
-    hash = (hash * 31 + seed.charCodeAt(i)) | 0
-  }
-  const id = CYCLING_PHOTOS[Math.abs(hash) % CYCLING_PHOTOS.length]
-  return `https://images.unsplash.com/${id}?w=1200&h=500&fit=crop&q=80&auto=format`
-}
 
 function formatDate(dateStr) {
   return new Date(dateStr).toLocaleDateString('ko-KR', {
@@ -153,7 +129,7 @@ export default function MeetingDetail() {
     if (!window.Kakao?.Share) return
 
     const pageUrl = window.location.href
-    const imageUrl = meeting.image || getCyclingPhoto(meeting.id)
+    const imageUrl = meeting.image || getCyclingPhoto(meeting.id, { width: 800, height: 400 })
 
     window.Kakao.Share.sendDefault({
       objectType: 'feed',
@@ -204,7 +180,7 @@ export default function MeetingDetail() {
     <div className="page detail-page">
       <div className="detail-hero">
         <img
-          src={meeting.image || getCyclingPhoto(meeting.id)}
+          src={meeting.image || getCyclingPhoto(meeting.id, { width: 1200, height: 500 })}
           alt={meeting.title}
           className="detail-hero-img"
           onError={e => { e.target.onerror = null; e.target.src = `https://picsum.photos/seed/${meeting.id}/1200/500` }}

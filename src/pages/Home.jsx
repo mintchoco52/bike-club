@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../contexts/AuthContext'
+import { getCyclingPhoto } from '../lib/cyclingPhotos'
 
 const DIFFICULTY_COLOR = { '초급': 'badge-green', '중급': 'badge-orange', '고급': 'badge-red' }
 
@@ -19,10 +20,11 @@ function MeetingCard({ meeting, userId, onJoinToggle }) {
     <article className="meeting-card" onClick={() => navigate(`/meeting/${meeting.id}`)}>
       <div className="card-img-wrap">
         <img
-          src={meeting.image || `https://picsum.photos/seed/${meeting.id}/600/300`}
+          src={meeting.image || getCyclingPhoto(meeting.id, { width: 600, height: 300 })}
           alt={meeting.title}
           className="card-img"
           loading="lazy"
+          onError={e => { e.target.onerror = null; e.target.src = `https://picsum.photos/seed/${meeting.id}/600/300` }}
         />
         <span className={`difficulty-badge ${DIFFICULTY_COLOR[meeting.difficulty] || 'badge-green'}`}>
           {meeting.difficulty}
