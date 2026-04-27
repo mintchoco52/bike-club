@@ -126,29 +126,34 @@ export default function MeetingDetail() {
 
   function handleKakaoShare() {
     const ok = initKakao()
-    console.log('[Kakao] initKakao 결과:', ok, '| Kakao.Link:', !!window.Kakao?.Link)
-    if (!ok || !window.Kakao?.Link) {
+    console.log('[Kakao] initKakao 결과:', ok, '| Kakao.Share:', !!window.Kakao?.Share)
+    if (!ok || !window.Kakao?.Share) {
       alert('카카오 SDK 초기화 실패. 콘솔을 확인해주세요.')
       return
     }
 
     const pageUrl = window.location.href
-    const description = `📅 ${formatDate(meeting.date)} ${meeting.time?.slice(0, 5) || ''}\n📍 ${meeting.location}\n👥 ${participants.length}/${meeting.max_participants}명`
+    const description = `📅 ${formatDate(meeting.date)} ${meeting.time?.slice(0, 5) || ''} · 📍 ${meeting.location} · 👥 ${participants.length}/${meeting.max_participants}명`
 
-    window.Kakao.Link.sendDefault({
-      objectType: 'feed',
-      content: {
-        title: meeting.title,
-        description,
-        link: { mobileWebUrl: pageUrl, webUrl: pageUrl },
-      },
-      buttons: [
-        {
-          title: '모임 자세히 보기',
+    try {
+      window.Kakao.Share.sendDefault({
+        objectType: 'feed',
+        content: {
+          title: meeting.title,
+          description,
           link: { mobileWebUrl: pageUrl, webUrl: pageUrl },
         },
-      ],
-    })
+        buttons: [
+          {
+            title: '모임 자세히 보기',
+            link: { mobileWebUrl: pageUrl, webUrl: pageUrl },
+          },
+        ],
+      })
+    } catch (err) {
+      console.error('[Kakao] 공유 실패:', err)
+      alert(`카카오 공유 오류: ${err.message}`)
+    }
   }
 
   if (loading) {
