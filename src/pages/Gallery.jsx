@@ -319,7 +319,7 @@ export default function Gallery() {
                   이 모임만 보기 →
                 </button>
               </div>
-              <div className="gallery-masonry">
+              <div className="gallery-grid">
                 {sectionPhotos.map(photo => (
                   <PhotoCard key={photo.id} photo={photo} user={user} onOpen={setSelected} onLike={handleLike} onDelete={handleDelete} />
                 ))}
@@ -328,7 +328,7 @@ export default function Gallery() {
           ))
         ) : (
           /* 특정 모임 보기 */
-          <div className="gallery-masonry">
+          <div className="gallery-grid">
             {filtered.map(photo => (
               <PhotoCard key={photo.id} photo={photo} user={user} onOpen={setSelected} onLike={handleLike} onDelete={handleDelete} />
             ))}
