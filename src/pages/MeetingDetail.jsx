@@ -68,6 +68,16 @@ export default function MeetingDetail() {
     setReviewsLoading(false)
   }, [id])
 
+  const isJoined = participants.some(p => p.user_id === user?.id)
+  const isFull = meeting && participants.length >= meeting.max_participants
+  const daysUntil = meeting
+    ? Math.ceil((new Date(meeting.date) - new Date()) / (1000 * 60 * 60 * 24))
+    : 0
+
+  const todayStr = new Date().toISOString().slice(0, 10)
+  const isPast = meeting ? meeting.date < todayStr : false
+  const myReview = reviews.find(r => r.user_id === user?.id)
+
   useEffect(() => {
     window.scrollTo(0, 0)
     fetchMeeting({ showLoading: true })
@@ -83,16 +93,6 @@ export default function MeetingDetail() {
     setReviewText(myReview.content)
     reviewPrefilled.current = true
   }, [myReview])
-
-  const isJoined = participants.some(p => p.user_id === user?.id)
-  const isFull = meeting && participants.length >= meeting.max_participants
-  const daysUntil = meeting
-    ? Math.ceil((new Date(meeting.date) - new Date()) / (1000 * 60 * 60 * 24))
-    : 0
-
-  const todayStr = new Date().toISOString().slice(0, 10)
-  const isPast = meeting ? meeting.date < todayStr : false
-  const myReview = reviews.find(r => r.user_id === user?.id)
 
   async function handleJoin() {
     console.group('[handleJoin]')
