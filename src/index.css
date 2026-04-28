@@ -273,6 +273,27 @@ input, textarea, select {
 }
 .filter-tab:hover { border-color: var(--primary); color: var(--primary); }
 .filter-tab.active { background: var(--primary); color: white; border-color: var(--primary); }
+.time-tabs {
+  display: flex;
+  gap: 0;
+  margin-bottom: 24px;
+  border-bottom: 2px solid var(--border);
+}
+.time-tab {
+  padding: 10px 24px;
+  font-size: 0.95rem;
+  font-weight: 600;
+  color: var(--text-muted);
+  background: none;
+  border: none;
+  border-bottom: 2px solid transparent;
+  margin-bottom: -2px;
+  cursor: pointer;
+  transition: all var(--transition);
+}
+.time-tab:hover { color: var(--primary); }
+.time-tab.active { color: var(--primary); border-bottom-color: var(--primary); }
+
 .meetings-grid {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
@@ -291,6 +312,8 @@ input, textarea, select {
   border: 1px solid var(--border);
 }
 .meeting-card:hover { box-shadow: var(--shadow-lg); transform: translateY(-4px); }
+.meeting-card.past { filter: grayscale(80%); opacity: 0.65; }
+.meeting-card.past:hover { filter: grayscale(60%); opacity: 0.8; box-shadow: var(--shadow); transform: translateY(-2px); }
 .card-img-wrap { position: relative; height: 180px; overflow: hidden; }
 .card-img { width: 100%; height: 100%; object-fit: cover; transition: transform 0.4s; }
 .meeting-card:hover .card-img { transform: scale(1.04); }

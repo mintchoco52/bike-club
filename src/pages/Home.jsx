@@ -10,7 +10,7 @@ function formatDate(dateStr) {
   return new Date(dateStr).toLocaleDateString('ko-KR', { month: 'long', day: 'numeric', weekday: 'short' })
 }
 
-function MeetingCard({ meeting, userId, onJoinToggle }) {
+function MeetingCard({ meeting, userId, onJoinToggle, isPast }) {
   const navigate = useNavigate()
   const participantCount = meeting.meeting_participants?.length ?? 0
   const isJoined = meeting.meeting_participants?.some(p => p.user_id === userId)
@@ -20,7 +20,7 @@ function MeetingCard({ meeting, userId, onJoinToggle }) {
   console.log(`[MeetingCard] id=${meeting.id} imgSrc=${imgSrc}`)
 
   return (
-    <article className="meeting-card" onClick={() => navigate(`/meeting/${meeting.id}`)}>
+    <article className={`meeting-card${isPast ? ' past' : ''}`} onClick={() => navigate(`/meeting/${meeting.id}`)}>
       <div className="card-img-wrap">
         <img
           src={imgSrc}
@@ -49,13 +49,15 @@ function MeetingCard({ meeting, userId, onJoinToggle }) {
         </ul>
         <p className="card-desc">{meeting.description}</p>
         <div className="card-footer">
-          <button
-            className={`btn btn-sm ${isJoined ? 'btn-outline' : isFull ? 'btn-disabled' : 'btn-primary'}`}
-            onClick={e => { e.stopPropagation(); onJoinToggle(meeting, isJoined) }}
-            disabled={isFull && !isJoined}
-          >
-            {isJoined ? '✓ 참가 중' : isFull ? '마감' : '참가하기'}
-          </button>
+          {!isPast && (
+            <button
+              className={`btn btn-sm ${isJoined ? 'btn-outline' : isFull ? 'btn-disabled' : 'btn-primary'}`}
+              onClick={e => { e.stopPropagation(); onJoinToggle(meeting, isJoined) }}
+              disabled={isFull && !isJoined}
+            >
+              {isJoined ? '✓ 참가 중' : isFull ? '마감' : '참가하기'}
+            </button>
+          )}
           <button
             className="btn btn-sm btn-ghost"
             onClick={e => { e.stopPropagation(); navigate(`/meeting/${meeting.id}`) }}
@@ -75,6 +77,7 @@ export default function Home() {
   const [error, setError] = useState('')
   const [search, setSearch] = useState('')
   const [filter, setFilter] = useState('전체')
+  const [tab, setTab] = useState('upcoming')
 
   const fetchMeetings = useCallback(async () => {
     try {
@@ -111,12 +114,18 @@ export default function Home() {
     fetchMeetings()
   }
 
+  const todayStr = new Date().toISOString().slice(0, 10)
+
   const difficulties = ['전체', '초급', '중급', '고급']
   const filtered = meetings.filter(m => {
     const matchSearch = m.title.includes(search) || m.location.includes(search)
     const matchFilter = filter === '전체' || m.difficulty === filter
     return matchSearch && matchFilter
   })
+
+  const tabFiltered = tab === 'upcoming'
+    ? filtered.filter(m => m.date >= todayStr)
+    : filtered.filter(m => m.date < todayStr).reverse()
 
   const uniqueParticipants = new Set(meetings.flatMap(m => (m.meeting_participants || []).map(p => p.user_id))).size
 
@@ -155,8 +164,26 @@ export default function Home() {
           </div>
         </div>
 
+        <div className="time-tabs">
+          <button
+            className={`time-tab ${tab === 'upcoming' ? 'active' : ''}`}
+            onClick={() => setTab('upcoming')}
+          >
+            예정된 모임
+          </button>
+          <button
+            className={`time-tab ${tab === 'past' ? 'active' : ''}`}
+            onClick={() => setTab('past')}
+          >
+            지난 모임
+          </button>
+        </div>
+
         <div className="section-header">
-          <h2>다가오는 모임 <span className="count-badge">{filtered.length}</span></h2>
+          <h2>
+            {tab === 'upcoming' ? '다가오는 모임' : '지난 모임'}
+            <span className="count-badge">{tabFiltered.length}</span>
+          </h2>
         </div>
 
         {loading ? (
@@ -165,12 +192,18 @@ export default function Home() {
           </div>
         ) : error ? (
           <div className="empty-state"><p>⚠️ {error}</p><button className="btn btn-primary btn-sm" onClick={fetchMeetings}>다시 시도</button></div>
-        ) : filtered.length === 0 ? (
-          <div className="empty-state"><p>🔍 {search || filter !== '전체' ? '검색 결과가 없습니다' : '아직 등록된 모임이 없습니다'}</p></div>
+        ) : tabFiltered.length === 0 ? (
+          <div className="empty-state">
+            <p>
+              {search || filter !== '전체'
+                ? '검색 결과가 없습니다'
+                : tab === 'upcoming' ? '아직 예정된 모임이 없습니다' : '지난 모임이 없습니다'}
+            </p>
+          </div>
         ) : (
           <div className="meetings-grid">
-            {filtered.map(m => (
-              <MeetingCard key={m.id} meeting={m} userId={user?.id} onJoinToggle={handleJoinToggle} />
+            {tabFiltered.map(m => (
+              <MeetingCard key={m.id} meeting={m} userId={user?.id} onJoinToggle={handleJoinToggle} isPast={tab === 'past'} />
             ))}
           </div>
         )}
