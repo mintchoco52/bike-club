@@ -11,6 +11,7 @@ export default function Home() {
   const [search, setSearch] = useState('')
   const [filter, setFilter] = useState('전체')
   const [tab, setTab] = useState('upcoming')
+  const [reviewCounts, setReviewCounts] = useState({})
 
   const fetchMeetings = useCallback(async () => {
     try {
@@ -20,6 +21,18 @@ export default function Home() {
         .order('date', { ascending: true })
       if (err) throw err
       setMeetings(data || [])
+
+      if (data?.length) {
+        const { data: reviewData } = await supabase
+          .from('reviews')
+          .select('meeting_id')
+          .in('meeting_id', data.map(m => m.id))
+        if (reviewData) {
+          const counts = {}
+          reviewData.forEach(r => { counts[r.meeting_id] = (counts[r.meeting_id] || 0) + 1 })
+          setReviewCounts(counts)
+        }
+      }
     } catch (err) {
       setError('모임 목록을 불러오지 못했습니다')
       console.error(err)
@@ -149,7 +162,7 @@ export default function Home() {
         ) : (
           <div className="meetings-grid">
             {tabFiltered.map(m => (
-              <MeetingCard key={m.id} meeting={m} userId={user?.id} onJoinToggle={handleJoinToggle} isPast={isPast(m)} />
+              <MeetingCard key={m.id} meeting={m} userId={user?.id} onJoinToggle={handleJoinToggle} isPast={isPast(m)} reviewCount={reviewCounts[m.id] || 0} />
             ))}
           </div>
         )}

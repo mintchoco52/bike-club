@@ -51,7 +51,7 @@ function AvatarStack({ participants }) {
   )
 }
 
-export default function MeetingCard({ meeting, userId, onJoinToggle, isPast }) {
+export default function MeetingCard({ meeting, userId, onJoinToggle, isPast, reviewCount = 0 }) {
   const navigate = useNavigate()
   const [pressed, setPressed] = useState(false)
 
@@ -189,16 +189,28 @@ export default function MeetingCard({ meeting, userId, onJoinToggle, isPast }) {
         {/* CTA 버튼 — 항상 하단 */}
         <div style={{marginTop:'auto'}}>
           {isPast ? (
-            <button
-              onClick={e => { e.stopPropagation(); navigate(`/meeting/${meeting.id}`) }}
-              style={{
-                width:'100%', height:44, borderRadius:22,
-                background:'oklch(92% 0.02 20)', border:'none',
-                color:SP.text3, fontSize:14, fontWeight:700,
-                cursor:'pointer', letterSpacing:'-0.01em',
-              }}>
-              기록 보기
-            </button>
+            <div style={{ display:'flex', alignItems:'center', gap:8 }}>
+              <button
+                onClick={e => { e.stopPropagation(); navigate(`/meeting/${meeting.id}`) }}
+                style={{
+                  flex:1, height:44, borderRadius:22,
+                  background:'oklch(92% 0.02 20)', border:'none',
+                  color:SP.text3, fontSize:14, fontWeight:700,
+                  cursor:'pointer', letterSpacing:'-0.01em',
+                }}>
+                기록 보기
+              </button>
+              {reviewCount > 0 && (
+                <span style={{
+                  flexShrink:0, fontSize:11, fontWeight:700,
+                  padding:'5px 11px', borderRadius:20,
+                  background:`${acc.main}18`, color:acc.main,
+                  whiteSpace:'nowrap',
+                }}>
+                  💬 후기 {reviewCount}개
+                </span>
+              )}
+            </div>
           ) : (
             <button
               onClick={e => { e.stopPropagation(); onJoinToggle(meeting, isJoined) }}
