@@ -65,6 +65,14 @@ export default function Home() {
   return (
     <div className="page home-page">
       <section className="hero">
+        {/* 벚꽃 장식 */}
+        <span className="hero-petal" aria-hidden="true" style={{width:58,height:58,top:'10%',left:'4%'}}/>
+        <span className="hero-petal" aria-hidden="true" style={{width:36,height:36,top:'18%',right:'6%',borderRadius:'0 50% 0 50%',background:'oklch(89% 0.07 40)',animationDelay:'1.4s'}}/>
+        <span className="hero-petal" aria-hidden="true" style={{width:48,height:48,bottom:'14%',left:'10%',animationDelay:'0.7s'}}/>
+        <span className="hero-petal" aria-hidden="true" style={{width:26,height:26,top:'8%',left:'50%',background:'oklch(90% 0.05 300)',animationDelay:'2.1s'}}/>
+        <span className="hero-petal" aria-hidden="true" style={{width:44,height:44,bottom:'20%',right:'8%',borderRadius:'0 50% 0 50%',background:'oklch(89% 0.07 40)',animationDelay:'1s'}}/>
+        <span className="hero-petal" aria-hidden="true" style={{width:20,height:20,top:'35%',left:'22%',background:'oklch(90% 0.05 300)',animationDelay:'3s'}}/>
+
         <div className="hero-content">
           <h1>함께 달리는 즐거움 🚴</h1>
           <p>기선자 모임과 함께 새로운 라이딩을 시작해보세요</p>
