@@ -42,6 +42,9 @@ export default function MeetingDetail() {
   const [reviewSubmitting, setReviewSubmitting] = useState(false)
   const [reviewsLoading, setReviewsLoading] = useState(false)
   const reviewPrefilled = useRef(false)
+  const [reviewPhotos, setReviewPhotos] = useState([])  // { type:'file'|'url', file?, preview?, url? }
+  const [lightboxUrl, setLightboxUrl] = useState(null)
+  const photoInputRef = useRef(null)
 
   const fetchMeeting = useCallback(async ({ showLoading = false } = {}) => {
     if (showLoading) setLoading(true)
@@ -108,10 +111,13 @@ export default function MeetingDetail() {
     if (isPast) fetchReviews()
   }, [isPast, fetchReviews])
 
-  // 내 기존 후기를 textarea에 한 번만 세팅
+  // 내 기존 후기를 textarea + 사진에 한 번만 세팅
   useEffect(() => {
     if (reviewPrefilled.current || !myReview) return
     setReviewText(myReview.content)
+    if (myReview.photos?.length) {
+      setReviewPhotos(myReview.photos.map(url => ({ type: 'url', url })))
+    }
     reviewPrefilled.current = true
   }, [myReview])
 
@@ -182,14 +188,54 @@ export default function MeetingDetail() {
     }
   }
 
+  function handlePhotoSelect(e) {
+    const files = Array.from(e.target.files)
+    setReviewPhotos(prev => {
+      const toAdd = files.slice(0, 3 - prev.length).map(file => ({
+        type: 'file', file, preview: URL.createObjectURL(file),
+      }))
+      return [...prev, ...toAdd]
+    })
+    e.target.value = ''
+  }
+
+  function handleRemovePhoto(idx) {
+    setReviewPhotos(prev => {
+      const next = [...prev]
+      if (next[idx].type === 'file') URL.revokeObjectURL(next[idx].preview)
+      next.splice(idx, 1)
+      return next
+    })
+  }
+
+  async function uploadReviewPhotos(slots) {
+    const urls = []
+    for (const slot of slots) {
+      if (slot.type === 'url') {
+        urls.push(slot.url)
+      } else {
+        const ext = slot.file.name.split('.').pop()
+        const path = `reviews/${id}/${user.id}/${Date.now()}_${Math.random().toString(36).slice(2)}.${ext}`
+        const { error } = await supabase.storage
+          .from('review-photos')
+          .upload(path, slot.file, { upsert: true })
+        if (error) throw error
+        const { data } = supabase.storage.from('review-photos').getPublicUrl(path)
+        urls.push(data.publicUrl)
+      }
+    }
+    return urls
+  }
+
   async function handleSubmitReview() {
     if (!reviewText.trim() || reviewSubmitting) return
     setReviewSubmitting(true)
     try {
+      const photoUrls = await uploadReviewPhotos(reviewPhotos)
       const { error } = await supabase
         .from('reviews')
         .upsert(
-          { meeting_id: id, user_id: user.id, content: reviewText.trim() },
+          { meeting_id: id, user_id: user.id, content: reviewText.trim(), photos: photoUrls },
           { onConflict: 'meeting_id,user_id' }
         )
       if (error) throw error
@@ -337,8 +383,40 @@ export default function MeetingDetail() {
                     maxLength={500}
                     rows={4}
                   />
+                  <input
+                    ref={photoInputRef}
+                    type="file"
+                    accept="image/*"
+                    multiple
+                    style={{ display: 'none' }}
+                    onChange={handlePhotoSelect}
+                  />
+                  {reviewPhotos.length > 0 && (
+                    <div className="review-photo-preview-grid">
+                      {reviewPhotos.map((p, i) => (
+                        <div key={i} className="review-photo-preview-item">
+                          <img src={p.type === 'file' ? p.preview : p.url} alt="" />
+                          <button
+                            type="button"
+                            className="review-photo-preview-x"
+                            onClick={() => handleRemovePhoto(i)}
+                          >×</button>
+                        </div>
+                      ))}
+                    </div>
+                  )}
                   <div className="review-form-footer">
-                    <span className="char-count">{reviewText.length}/500</span>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                      <button
+                        type="button"
+                        className="review-photo-add-btn"
+                        onClick={() => photoInputRef.current?.click()}
+                        disabled={reviewPhotos.length >= 3}
+                      >
+                        📷 사진 추가 ({reviewPhotos.length}/3)
+                      </button>
+                      <span className="char-count">{reviewText.length}/500</span>
+                    </div>
                     <button
                       className="btn btn-primary btn-sm"
                       onClick={handleSubmitReview}
@@ -382,6 +460,19 @@ export default function MeetingDetail() {
                         </div>
                       </div>
                       <p className="review-content">{r.content}</p>
+                      {r.photos?.length > 0 && (
+                        <div className="review-photos-grid">
+                          {r.photos.map((url, i) => (
+                            <img
+                              key={i}
+                              src={url}
+                              alt=""
+                              className="review-photo-thumb"
+                              onClick={e => { e.stopPropagation(); setLightboxUrl(url) }}
+                            />
+                          ))}
+                        </div>
+                      )}
                     </div>
                   ))}
                 </div>
@@ -458,6 +549,13 @@ export default function MeetingDetail() {
           </div>
         </div>
       </div>
+
+      {lightboxUrl && (
+        <div className="review-lightbox" onClick={() => setLightboxUrl(null)}>
+          <button className="review-lightbox-close" onClick={() => setLightboxUrl(null)}>×</button>
+          <img src={lightboxUrl} alt="" onClick={e => e.stopPropagation()} />
+        </div>
+      )}
     </div>
   )
 }
