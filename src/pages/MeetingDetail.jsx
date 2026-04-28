@@ -47,13 +47,17 @@ export default function MeetingDetail() {
     if (showLoading) setLoading(true)
     const { data, error } = await supabase
       .from('meetings')
-      .select('*, meeting_participants(user_id, user_name)')
+      .select('*')
       .eq('id', id)
       .single()
-    console.log('[fetchMeeting] data:', data, 'error:', error)
     if (error || !data) { setLoading(false); return }
     setMeeting(data)
-    setParticipants(data.meeting_participants || [])
+
+    const { data: parts } = await supabase
+      .from('meeting_participants')
+      .select('user_id, user_name')
+      .eq('meeting_id', id)
+    setParticipants(parts || [])
     setLoading(false)
   }, [id])
 
@@ -169,19 +173,13 @@ export default function MeetingDetail() {
     if (!reviewText.trim() || reviewSubmitting) return
     setReviewSubmitting(true)
     try {
-      if (myReview) {
-        const { error } = await supabase
-          .from('reviews')
-          .update({ content: reviewText.trim() })
-          .eq('id', myReview.id)
-          .eq('user_id', user.id)
-        if (error) throw error
-      } else {
-        const { error } = await supabase
-          .from('reviews')
-          .insert({ meeting_id: id, user_id: user.id, content: reviewText.trim() })
-        if (error) throw error
-      }
+      const { error } = await supabase
+        .from('reviews')
+        .upsert(
+          { meeting_id: id, user_id: user.id, content: reviewText.trim() },
+          { onConflict: 'meeting_id,user_id' }
+        )
+      if (error) throw error
       await fetchReviews()
     } catch (err) {
       console.error('[Review] 오류:', err)
