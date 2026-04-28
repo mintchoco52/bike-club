@@ -65,10 +65,23 @@ export default function MeetingDetail() {
     setReviewsLoading(true)
     const { data, error } = await supabase
       .from('reviews')
-      .select('*, profiles(name)')
+      .select('*')
       .eq('meeting_id', id)
       .order('created_at', { ascending: true })
-    if (!error) setReviews(data || [])
+    if (!error && data) {
+      const userIds = [...new Set(data.map(r => r.user_id))]
+      let nameMap = {}
+      if (userIds.length > 0) {
+        const { data: profilesData } = await supabase
+          .from('profiles')
+          .select('id, name')
+          .in('id', userIds)
+        if (profilesData) profilesData.forEach(p => { nameMap[p.id] = p.name })
+      }
+      setReviews(data.map(r => ({ ...r, _name: nameMap[r.user_id] || '익명' })))
+    } else {
+      setReviews([])
+    }
     setReviewsLoading(false)
   }, [id])
 
@@ -358,11 +371,11 @@ export default function MeetingDetail() {
                     <div key={r.id} className={`review-item${r.user_id === user?.id ? ' my-review' : ''}`}>
                       <div className="review-header">
                         <div className="review-avatar">
-                          {(r.profiles?.name || '?')[0].toUpperCase()}
+                          {(r._name || '?')[0].toUpperCase()}
                         </div>
                         <div className="review-author">
                           <span className="review-author-name">
-                            {r.profiles?.name || '알 수 없음'}
+                            {r._name}
                             {r.user_id === user?.id && <span className="my-badge">나</span>}
                           </span>
                           <span className="review-date">{formatReviewDate(r.created_at)}</span>
