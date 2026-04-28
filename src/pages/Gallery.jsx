@@ -6,6 +6,53 @@ function cleanFileName(name) {
   return name.replace(/\.[^/.]+$/, '').replace(/[-_]/g, ' ').trim() || '사진'
 }
 
+function formatDate(str) {
+  return new Date(str).toLocaleDateString('ko-KR', { year: 'numeric', month: 'short', day: 'numeric' })
+}
+
+function formatCommentTime(str) {
+  const diff = Date.now() - new Date(str).getTime()
+  const mins = Math.floor(diff / 60000)
+  if (mins < 1) return '방금'
+  if (mins < 60) return `${mins}분 전`
+  const hours = Math.floor(mins / 60)
+  if (hours < 24) return `${hours}시간 전`
+  const days = Math.floor(hours / 24)
+  if (days < 7) return `${days}일 전`
+  return new Date(str).toLocaleDateString('ko-KR', { month: 'short', day: 'numeric' })
+}
+
+function PhotoCard({ photo, user, onOpen, onLike, onDelete }) {
+  const isLiked = photo.photo_likes?.some(l => l.user_id === user?.id)
+  const likeCount = photo.photo_likes?.length || 0
+  const commentCount = photo.photo_comments?.length || 0
+
+  return (
+    <div className="gallery-item" onClick={() => onOpen(photo)}>
+      <img src={photo.url} alt={photo.title} className="gallery-img" loading="lazy" />
+      <div className="gallery-item-overlay">
+        <div className="gallery-item-info">
+          {photo.meeting_title && <p className="gallery-item-meeting">📍 {photo.meeting_title}</p>}
+          <p className="gallery-item-title">{photo.title}</p>
+          <p className="gallery-item-meta">{formatDate(photo.created_at)}</p>
+        </div>
+        <div className="gallery-item-actions">
+          <button
+            className={`like-btn ${isLiked ? 'liked' : ''}`}
+            onClick={e => { e.stopPropagation(); onLike(photo.id) }}
+          >
+            {isLiked ? '❤️' : '🤍'} {likeCount}
+          </button>
+          <span className="comment-count-badge">💬 {commentCount}</span>
+          {photo.uploaded_by === user?.id && (
+            <button className="delete-btn" onClick={e => { e.stopPropagation(); onDelete(photo.id) }} title="삭제">🗑</button>
+          )}
+        </div>
+      </div>
+    </div>
+  )
+}
+
 export default function Gallery() {
   const { user, profile } = useAuth()
   const fileRef = useRef()
@@ -17,15 +64,13 @@ export default function Gallery() {
   const [selected, setSelected] = useState(null)
   const [filterBy, setFilterBy] = useState('전체')
 
-  // 다중 업로드 상태
   const [showUploadModal, setShowUploadModal] = useState(false)
-  const [pendingFiles, setPendingFiles] = useState([]) // [{file, preview, title}]
+  const [pendingFiles, setPendingFiles] = useState([])
   const [uploadMeeting, setUploadMeeting] = useState('')
   const [uploading, setUploading] = useState(false)
-  const [uploadProgress, setUploadProgress] = useState(null) // {current, total}
+  const [uploadProgress, setUploadProgress] = useState(null)
   const [uploadError, setUploadError] = useState('')
 
-  // 댓글 상태
   const [comments, setComments] = useState([])
   const [commentText, setCommentText] = useState('')
   const [commentSubmitting, setCommentSubmitting] = useState(false)
@@ -57,13 +102,11 @@ export default function Gallery() {
     init()
   }, [fetchPhotos])
 
-  // 사진 선택 시 댓글 로드
   useEffect(() => {
     if (!selected) { setComments([]); setCommentText(''); return }
     fetchComments(selected.id)
   }, [selected?.id, fetchComments])
 
-  // 댓글 추가 시 스크롤
   useEffect(() => {
     commentsEndRef.current?.scrollIntoView({ behavior: 'smooth' })
   }, [comments])
@@ -71,12 +114,29 @@ export default function Gallery() {
   const filterTitles = ['전체', ...new Set(photos.map(p => p.meeting_title).filter(Boolean))]
   const filtered = filterBy === '전체' ? photos : photos.filter(p => p.meeting_title === filterBy)
 
-  // 라이트박스 현재 위치
+  // 모임별 그룹 (전체 탭에서만 사용)
+  let groupedSections = null
+  if (filterBy === '전체' && photos.length > 0) {
+    const order = []
+    const map = {}
+    photos.forEach(p => {
+      const key = p.meeting_title || '기타'
+      if (!map[key]) { map[key] = []; order.push(key) }
+      map[key].push(p)
+    })
+    groupedSections = order.map(key => [key, map[key]])
+  }
+
+  // 탭별 사진 수
+  const filterCounts = { '전체': photos.length }
+  photos.forEach(p => {
+    if (p.meeting_title) filterCounts[p.meeting_title] = (filterCounts[p.meeting_title] || 0) + 1
+  })
+
   const currentIdx = selected ? filtered.findIndex(p => p.id === selected.id) : -1
   const hasPrev = currentIdx > 0
   const hasNext = currentIdx < filtered.length - 1
 
-  // 키보드: ESC 닫기, ← → 탐색
   useEffect(() => {
     if (!selected) return
     function onKey(e) {
@@ -88,7 +148,6 @@ export default function Gallery() {
     return () => window.removeEventListener('keydown', onKey)
   }, [selected, currentIdx, filtered])
 
-  // ── 파일 선택 (다중) ──────────────────────────────────
   function handleFileSelect(e) {
     const files = Array.from(e.target.files)
     if (!files.length) return
@@ -111,7 +170,6 @@ export default function Gallery() {
     setUploadProgress(null)
   }
 
-  // ── 업로드 (순차 처리) ────────────────────────────────
   async function handleUpload() {
     if (!pendingFiles.length) return
     setUploading(true)
@@ -168,7 +226,6 @@ export default function Gallery() {
     }
   }
 
-  // ── 좋아요 ────────────────────────────────────────────
   async function handleLike(photoId) {
     if (!user) return
     const photo = photos.find(p => p.id === photoId)
@@ -185,14 +242,12 @@ export default function Gallery() {
     }
   }
 
-  // ── 사진 삭제 ─────────────────────────────────────────
   async function handleDelete(photoId) {
     if (selected?.id === photoId) setSelected(null)
     await supabase.from('photos').delete().eq('id', photoId).eq('uploaded_by', user.id)
     setPhotos(prev => prev.filter(p => p.id !== photoId))
   }
 
-  // ── 댓글 ─────────────────────────────────────────────
   async function handleAddComment(e) {
     e.preventDefault()
     if (!commentText.trim() || !user || commentSubmitting) return
@@ -211,23 +266,6 @@ export default function Gallery() {
     setComments(prev => prev.filter(c => c.id !== commentId))
   }
 
-  // ── 날짜 포맷 ─────────────────────────────────────────
-  function formatDate(str) {
-    return new Date(str).toLocaleDateString('ko-KR', { year: 'numeric', month: 'short', day: 'numeric' })
-  }
-
-  function formatCommentTime(str) {
-    const diff = Date.now() - new Date(str).getTime()
-    const mins = Math.floor(diff / 60000)
-    if (mins < 1) return '방금'
-    if (mins < 60) return `${mins}분 전`
-    const hours = Math.floor(mins / 60)
-    if (hours < 24) return `${hours}시간 전`
-    const days = Math.floor(hours / 24)
-    if (days < 7) return `${days}일 전`
-    return new Date(str).toLocaleDateString('ko-KR', { month: 'short', day: 'numeric' })
-  }
-
   return (
     <div className="page gallery-page">
       <div className="container">
@@ -240,9 +278,17 @@ export default function Gallery() {
           <input ref={fileRef} type="file" accept="image/*" multiple style={{ display: 'none' }} onChange={handleFileSelect} />
         </div>
 
+        {/* 모임별 필터 탭 */}
         <div className="gallery-filter-bar">
           {filterTitles.map(t => (
-            <button key={t} className={`filter-tab ${filterBy === t ? 'active' : ''}`} onClick={() => setFilterBy(t)}>{t}</button>
+            <button
+              key={t}
+              className={`filter-tab ${filterBy === t ? 'active' : ''}`}
+              onClick={() => setFilterBy(t)}
+            >
+              {t}
+              <span className="filter-tab-count">{filterCounts[t] ?? 0}</span>
+            </button>
           ))}
         </div>
 
@@ -260,33 +306,32 @@ export default function Gallery() {
             <p>📷 아직 사진이 없습니다</p>
             <button className="btn btn-primary" onClick={() => fileRef.current.click()}>첫 사진 올리기</button>
           </div>
-        ) : (
-          <div className="gallery-masonry">
-            {filtered.map((photo) => {
-              const isLiked = photo.photo_likes?.some(l => l.user_id === user?.id)
-              const likeCount = photo.photo_likes?.length || 0
-              const commentCount = photo.photo_comments?.length || 0
-              return (
-                <div key={photo.id} className="gallery-item" onClick={() => setSelected(photo)}>
-                  <img src={photo.url} alt={photo.title} className="gallery-img" loading="lazy" />
-                  <div className="gallery-item-overlay">
-                    <div className="gallery-item-info">
-                      <p className="gallery-item-title">{photo.title}</p>
-                      <p className="gallery-item-meta">{photo.uploader_name} · {formatDate(photo.created_at)}</p>
-                    </div>
-                    <div className="gallery-item-actions">
-                      <button className={`like-btn ${isLiked ? 'liked' : ''}`} onClick={e => { e.stopPropagation(); handleLike(photo.id) }}>
-                        {isLiked ? '❤️' : '🤍'} {likeCount}
-                      </button>
-                      <span className="comment-count-badge">💬 {commentCount}</span>
-                      {photo.uploaded_by === user?.id && (
-                        <button className="delete-btn" onClick={e => { e.stopPropagation(); handleDelete(photo.id) }} title="삭제">🗑</button>
-                      )}
-                    </div>
-                  </div>
+        ) : filterBy === '전체' && groupedSections ? (
+          /* 전체 보기: 모임별 섹션 */
+          groupedSections.map(([meeting, sectionPhotos]) => (
+            <section key={meeting} className="gallery-section">
+              <div className="gallery-section-header">
+                <div className="gallery-section-title-wrap">
+                  <h2 className="gallery-section-title">{meeting}</h2>
+                  <span className="gallery-section-count">{sectionPhotos.length}장</span>
                 </div>
-              )
-            })}
+                <button className="gallery-section-btn" onClick={() => setFilterBy(meeting)}>
+                  이 모임만 보기 →
+                </button>
+              </div>
+              <div className="gallery-masonry">
+                {sectionPhotos.map(photo => (
+                  <PhotoCard key={photo.id} photo={photo} user={user} onOpen={setSelected} onLike={handleLike} onDelete={handleDelete} />
+                ))}
+              </div>
+            </section>
+          ))
+        ) : (
+          /* 특정 모임 보기 */
+          <div className="gallery-masonry">
+            {filtered.map(photo => (
+              <PhotoCard key={photo.id} photo={photo} user={user} onOpen={setSelected} onLike={handleLike} onDelete={handleDelete} />
+            ))}
           </div>
         )}
       </div>
