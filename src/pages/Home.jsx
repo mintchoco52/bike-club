@@ -47,7 +47,12 @@ export default function Home() {
     fetchMeetings()
   }
 
-  const todayStr = new Date().toISOString().slice(0, 10)
+  const isPast = (m) => {
+    if (!m.date || !m.time) return false
+    const endTime = new Date(`${m.date}T${m.time}`)
+    endTime.setHours(endTime.getHours() + 2)
+    return new Date() > endTime
+  }
 
   const difficulties = ['전체', '초급', '중급', '고급']
   const filtered = meetings.filter(m => {
@@ -57,8 +62,8 @@ export default function Home() {
   })
 
   const tabFiltered = tab === 'upcoming'
-    ? filtered.filter(m => m.date >= todayStr)
-    : filtered.filter(m => m.date < todayStr).reverse()
+    ? filtered.filter(m => !isPast(m))
+    : filtered.filter(m => isPast(m)).reverse()
 
   const uniqueParticipants = new Set(meetings.flatMap(m => (m.meeting_participants || []).map(p => p.user_id))).size
 
@@ -144,7 +149,7 @@ export default function Home() {
         ) : (
           <div className="meetings-grid">
             {tabFiltered.map(m => (
-              <MeetingCard key={m.id} meeting={m} userId={user?.id} onJoinToggle={handleJoinToggle} isPast={tab === 'past'} />
+              <MeetingCard key={m.id} meeting={m} userId={user?.id} onJoinToggle={handleJoinToggle} isPast={isPast(m)} />
             ))}
           </div>
         )}
