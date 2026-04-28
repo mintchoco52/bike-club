@@ -206,16 +206,16 @@ export default function MeetingCard({ meeting, userId, onJoinToggle, isPast }) {
               style={{
                 width:'100%', height:44, borderRadius:22, border:'none',
                 background: isJoined
-                  ? `${acc.main}15`
+                  ? `${acc.main}22`
                   : isFull
-                  ? 'oklch(92% 0.02 20)'
-                  : `linear-gradient(135deg, ${acc.main}, ${acc.main}cc)`,
-                color: isJoined ? acc.main : isFull ? SP.text3 : 'white',
-                outline: isJoined ? `1.5px solid ${acc.main}55` : 'none',
+                  ? '#e5e7eb'
+                  : acc.main,
+                color: isJoined ? acc.main : isFull ? '#9ca3af' : '#ffffff',
+                outline: isJoined ? `1.5px solid ${acc.main}` : 'none',
                 fontSize:14, fontWeight:700, letterSpacing:'-0.01em',
                 cursor: isFull && !isJoined ? 'not-allowed' : 'pointer',
                 transition:'all 0.2s',
-                boxShadow: isJoined || isFull ? 'none' : `0 4px 14px ${acc.main}44`,
+                boxShadow: isJoined || isFull ? 'none' : `0 4px 14px ${acc.main}55`,
               }}>
               {isJoined ? '✓ 참가 중' : isFull ? '마감된 모임' : '참가하기'}
             </button>
