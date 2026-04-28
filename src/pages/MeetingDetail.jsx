@@ -1,4 +1,4 @@
-import { useEffect, useState, useCallback } from 'react'
+import { useEffect, useState, useCallback, useRef } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { MapContainer, TileLayer, Marker, Popup } from 'react-leaflet'
 import L from 'leaflet'
@@ -20,6 +20,10 @@ function formatDate(dateStr) {
   })
 }
 
+function formatReviewDate(str) {
+  return new Date(str).toLocaleDateString('ko-KR', { year: 'numeric', month: 'short', day: 'numeric' })
+}
+
 const DIFFICULTY_COLOR = { '초급': 'badge-green', '중급': 'badge-orange', '고급': 'badge-red' }
 
 export default function MeetingDetail() {
@@ -31,6 +35,13 @@ export default function MeetingDetail() {
   const [loading, setLoading] = useState(true)
   const [joining, setJoining] = useState(false)
   const [joinError, setJoinError] = useState('')
+
+  // 후기
+  const [reviews, setReviews] = useState([])
+  const [reviewText, setReviewText] = useState('')
+  const [reviewSubmitting, setReviewSubmitting] = useState(false)
+  const [reviewsLoading, setReviewsLoading] = useState(false)
+  const reviewPrefilled = useRef(false)
 
   const fetchMeeting = useCallback(async ({ showLoading = false } = {}) => {
     if (showLoading) setLoading(true)
@@ -46,16 +57,42 @@ export default function MeetingDetail() {
     setLoading(false)
   }, [id])
 
+  const fetchReviews = useCallback(async () => {
+    setReviewsLoading(true)
+    const { data, error } = await supabase
+      .from('reviews')
+      .select('*, profiles(name)')
+      .eq('meeting_id', id)
+      .order('created_at', { ascending: true })
+    if (!error) setReviews(data || [])
+    setReviewsLoading(false)
+  }, [id])
+
   useEffect(() => {
     window.scrollTo(0, 0)
     fetchMeeting({ showLoading: true })
   }, [fetchMeeting])
+
+  useEffect(() => {
+    if (isPast) fetchReviews()
+  }, [isPast, fetchReviews])
+
+  // 내 기존 후기를 textarea에 한 번만 세팅
+  useEffect(() => {
+    if (reviewPrefilled.current || !myReview) return
+    setReviewText(myReview.content)
+    reviewPrefilled.current = true
+  }, [myReview])
 
   const isJoined = participants.some(p => p.user_id === user?.id)
   const isFull = meeting && participants.length >= meeting.max_participants
   const daysUntil = meeting
     ? Math.ceil((new Date(meeting.date) - new Date()) / (1000 * 60 * 60 * 24))
     : 0
+
+  const todayStr = new Date().toISOString().slice(0, 10)
+  const isPast = meeting ? meeting.date < todayStr : false
+  const myReview = reviews.find(r => r.user_id === user?.id)
 
   async function handleJoin() {
     console.group('[handleJoin]')
@@ -121,6 +158,31 @@ export default function MeetingDetail() {
     } finally {
       setJoining(false)
       console.groupEnd()
+    }
+  }
+
+  async function handleSubmitReview() {
+    if (!reviewText.trim() || reviewSubmitting) return
+    setReviewSubmitting(true)
+    try {
+      if (myReview) {
+        const { error } = await supabase
+          .from('reviews')
+          .update({ content: reviewText.trim() })
+          .eq('id', myReview.id)
+          .eq('user_id', user.id)
+        if (error) throw error
+      } else {
+        const { error } = await supabase
+          .from('reviews')
+          .insert({ meeting_id: id, user_id: user.id, content: reviewText.trim() })
+        if (error) throw error
+      }
+      await fetchReviews()
+    } catch (err) {
+      console.error('[Review] 오류:', err)
+    } finally {
+      setReviewSubmitting(false)
     }
   }
 
@@ -240,6 +302,77 @@ export default function MeetingDetail() {
               ))}
             </div>
           </div>
+
+          {/* ── 라이딩 후기 ── */}
+          {isPast && (
+            <div className="detail-card">
+              <h2 className="section-title">🚴 라이딩 후기</h2>
+
+              {/* 작성 폼: 참가자 + 로그인 유저만 */}
+              {isJoined && user ? (
+                <div className="review-form-wrap">
+                  <p className="review-form-label">
+                    {myReview ? '✏️ 내 후기 수정하기' : '✍️ 후기 남기기'}
+                  </p>
+                  <textarea
+                    className="form-input form-textarea review-textarea"
+                    placeholder="이번 라이딩은 어떠셨나요? 솔직한 후기를 남겨주세요 🚴"
+                    value={reviewText}
+                    onChange={e => setReviewText(e.target.value)}
+                    maxLength={500}
+                    rows={4}
+                  />
+                  <div className="review-form-footer">
+                    <span className="char-count">{reviewText.length}/500</span>
+                    <button
+                      className="btn btn-primary btn-sm"
+                      onClick={handleSubmitReview}
+                      disabled={!reviewText.trim() || reviewSubmitting}
+                    >
+                      {reviewSubmitting
+                        ? <span className="btn-spinner" />
+                        : myReview ? '수정하기' : '후기 등록'}
+                    </button>
+                  </div>
+                </div>
+              ) : user ? (
+                <p className="review-notice">참가했던 멤버만 후기를 작성할 수 있어요</p>
+              ) : (
+                <p className="review-notice">로그인 후 후기를 작성할 수 있어요</p>
+              )}
+
+              {/* 후기 목록 */}
+              {reviewsLoading ? (
+                <div className="spinner-wrap" style={{ padding: '20px 0' }}>
+                  <div className="spinner" /><p>불러오는 중...</p>
+                </div>
+              ) : reviews.length === 0 ? (
+                <div className="review-empty">
+                  <p>아직 후기가 없어요. 첫 번째 후기를 남겨보세요! ✍️</p>
+                </div>
+              ) : (
+                <div className="reviews-list">
+                  {reviews.map(r => (
+                    <div key={r.id} className={`review-item${r.user_id === user?.id ? ' my-review' : ''}`}>
+                      <div className="review-header">
+                        <div className="review-avatar">
+                          {(r.profiles?.name || '?')[0].toUpperCase()}
+                        </div>
+                        <div className="review-author">
+                          <span className="review-author-name">
+                            {r.profiles?.name || '알 수 없음'}
+                            {r.user_id === user?.id && <span className="my-badge">나</span>}
+                          </span>
+                          <span className="review-date">{formatReviewDate(r.created_at)}</span>
+                        </div>
+                      </div>
+                      <p className="review-content">{r.content}</p>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
         </div>
 
         <div className="detail-side">
