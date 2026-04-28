@@ -601,27 +601,38 @@ export default function MeetingDetail() {
               </div>
             </div>
             <button
-              className={`btn btn-lg full-width ${isJoined ? 'btn-outline' : isFull ? 'btn-disabled' : 'btn-primary'}`}
-              onClick={handleJoin}
-              disabled={(isFull && !isJoined) || joining}
+              className={`btn btn-lg full-width ${
+                isPast && isJoined ? 'btn-disabled'
+                : isJoined ? 'btn-outline'
+                : isFull ? 'btn-disabled'
+                : 'btn-primary'
+              }`}
+              onClick={isPast ? undefined : handleJoin}
+              disabled={isPast || (isFull && !isJoined) || joining}
+              style={isPast && isJoined ? { opacity: 0.45, cursor: 'default' } : undefined}
             >
               {joining
                 ? <span className="btn-spinner" />
-                : isJoined ? '✓ 참가 중 (취소하기)' : isFull ? '모집 마감' : '참가하기 🚴'}
+                : isPast && isJoined ? '✓ 참가했던 모임'
+                : isJoined ? '✓ 참가 중 (취소하기)'
+                : isFull ? '모집 마감'
+                : '참가하기 🚴'}
             </button>
-            {!isJoined && !isFull && (
+            {!isPast && !isJoined && !isFull && (
               <p className="join-hint">참가하면 내 프로필에서 확인할 수 있어요</p>
             )}
             {joinError && (
               <p className="join-error">⚠️ {joinError}</p>
             )}
 
-            <button className="kakao-share-btn" onClick={handleKakaoShare}>
-              <svg width="18" height="18" viewBox="0 0 18 18" fill="none">
-                <path d="M9 1.5C4.86 1.5 1.5 4.19 1.5 7.5c0 2.1 1.26 3.94 3.15 5.04L3.9 15l3.21-1.73c.61.1 1.25.16 1.89.16 4.14 0 7.5-2.69 7.5-6s-3.36-6-7.5-6z" fill="#000000"/>
-              </svg>
-              카카오톡으로 공유
-            </button>
+            {!isPast && (
+              <button className="kakao-share-btn" onClick={handleKakaoShare}>
+                <svg width="18" height="18" viewBox="0 0 18 18" fill="none">
+                  <path d="M9 1.5C4.86 1.5 1.5 4.19 1.5 7.5c0 2.1 1.26 3.94 3.15 5.04L3.9 15l3.21-1.73c.61.1 1.25.16 1.89.16 4.14 0 7.5-2.69 7.5-6s-3.36-6-7.5-6z" fill="#000000"/>
+                </svg>
+                카카오톡으로 공유
+              </button>
+            )}
           </div>
 
           <div className="detail-card map-card">
