@@ -24,7 +24,6 @@ const AVATAR_COLORS = [ACCENTS.sage.main, ACCENTS.sky.main, ACCENTS.pink.main, A
 function AvatarStack({ participants }) {
   const items = participants?.slice(0, 4) || []
   const extra = (participants?.length ?? 0) - 4
-
   return (
     <div style={{ display:'flex', alignItems:'center' }}>
       {items.map((p, i) => (
@@ -60,6 +59,7 @@ export default function MeetingCard({ meeting, userId, onJoinToggle, isPast }) {
   const isJoined = meeting.meeting_participants?.some(p => p.user_id === userId)
   const isFull = participantCount >= meeting.max_participants
   const pct = meeting.max_participants > 0 ? (participantCount / meeting.max_participants) * 100 : 0
+  const remaining = meeting.max_participants - participantCount
 
   const acc = ACCENTS[DIFF_ACCENT[meeting.difficulty]] ?? ACCENTS.sage
   const emoji = DIFF_EMOJI[meeting.difficulty] ?? '🚴'
@@ -91,13 +91,15 @@ export default function MeetingCard({ meeting, userId, onJoinToggle, isPast }) {
         cursor:'pointer',
         filter: isPast ? 'grayscale(75%)' : 'none',
         opacity: isPast ? 0.65 : 1,
+        display:'flex', flexDirection:'column',
+        minHeight: 340,
       }}
     >
       {/* ── 헤더 ── */}
       <div style={{
         background:`linear-gradient(135deg, ${acc.light}, ${acc.bg} 70%, white)`,
         padding:'16px 16px 14px',
-        position:'relative', overflow:'hidden',
+        position:'relative', overflow:'hidden', flexShrink:0,
       }}>
         {/* 장식 원 */}
         <div style={{position:'absolute',top:-24,right:-24,width:90,height:90,borderRadius:'50%',background:acc.main,opacity:0.12,pointerEvents:'none'}}/>
@@ -117,28 +119,26 @@ export default function MeetingCard({ meeting, userId, onJoinToggle, isPast }) {
           )}
         </div>
 
-        {/* 제목 */}
+        {/* 제목 + 이모지 */}
         <div style={{position:'relative',zIndex:1,display:'flex',alignItems:'flex-end',justifyContent:'space-between',gap:8}}>
-          <div style={{minWidth:0}}>
-            <h3 style={{fontSize:18,fontWeight:800,color:SP.text1,letterSpacing:'-0.025em',lineHeight:1.25,wordBreak:'keep-all'}}>
-              {meeting.title}
-            </h3>
-            {meeting.description && (
-              <p style={{
-                fontSize:12, color:SP.text2, marginTop:3,
-                display:'-webkit-box', WebkitLineClamp:1,
-                WebkitBoxOrient:'vertical', overflow:'hidden',
-              }}>{meeting.description}</p>
-            )}
-          </div>
-          <span style={{fontSize:28,flexShrink:0,lineHeight:1}}>{emoji}</span>
+          <h3 style={{
+            fontSize:18, fontWeight:800, color:SP.text1,
+            letterSpacing:'-0.025em', lineHeight:1.25, wordBreak:'keep-all',
+            minWidth:0,
+          }}>
+            {meeting.title}
+          </h3>
+          <span style={{fontSize:28, flexShrink:0, lineHeight:1}}>{emoji}</span>
         </div>
       </div>
 
       {/* ── 바디 ── */}
-      <div style={{padding:'12px 16px 16px'}}>
+      <div style={{
+        padding:'12px 16px 16px',
+        flex:1, display:'flex', flexDirection:'column', gap:12,
+      }}>
         {/* 정보 칩 */}
-        <div style={{display:'flex',flexWrap:'wrap',gap:6,marginBottom:12}}>
+        <div style={{display:'flex', flexWrap:'wrap', gap:6}}>
           {chips.map((c, i) => (
             <div key={i} style={{
               display:'flex', alignItems:'center', gap:4,
@@ -146,64 +146,81 @@ export default function MeetingCard({ meeting, userId, onJoinToggle, isPast }) {
               border:`1px solid ${SP.divider}`,
             }}>
               <span style={{fontSize:11}}>{c.icon}</span>
-              <span style={{fontSize:11,fontWeight:500,color:SP.text2}}>{c.label}</span>
+              <span style={{fontSize:11, fontWeight:500, color:SP.text2}}>{c.label}</span>
             </div>
           ))}
         </div>
 
-        {/* 구분선 */}
-        <div style={{height:1,background:SP.divider,marginBottom:12}}/>
+        {/* 설명 */}
+        {meeting.description && (
+          <p style={{
+            fontSize:12, color:SP.text2, lineHeight:1.55, margin:0,
+            display:'-webkit-box', WebkitLineClamp:2,
+            WebkitBoxOrient:'vertical', overflow:'hidden',
+          }}>{meeting.description}</p>
+        )}
 
-        {/* 참가자 + 진행 바 */}
-        <div style={{display:'flex',alignItems:'center',gap:8,marginBottom:12}}>
-          <AvatarStack participants={meeting.meeting_participants}/>
-          <div style={{flex:1}}>
-            <div style={{height:4,background:`${acc.main}15`,borderRadius:4,overflow:'hidden'}}>
-              <div style={{
-                height:'100%', width:`${pct}%`,
-                background:`linear-gradient(90deg, ${acc.main}cc, ${acc.main})`,
-                borderRadius:4, transition:'width 0.6s ease',
-              }}/>
-            </div>
+        {/* 구분선 */}
+        <div style={{height:1, background:SP.divider}}/>
+
+        {/* 참가자 진행 바 */}
+        <div style={{display:'flex', flexDirection:'column', gap:6}}>
+          {/* 아바타 + 카운트 */}
+          <div style={{display:'flex', alignItems:'center', justifyContent:'space-between'}}>
+            <AvatarStack participants={meeting.meeting_participants}/>
+            <span style={{fontSize:12, fontWeight:700, color:SP.text2}}>
+              {participantCount}/{meeting.max_participants}명
+            </span>
           </div>
-          <span style={{fontSize:11,fontWeight:600,color:acc.main,flexShrink:0}}>
-            {isFull ? '마감' : `${meeting.max_participants - participantCount}자리`}
+          {/* 바 */}
+          <div style={{height:6, background:`${acc.main}15`, borderRadius:6, overflow:'hidden'}}>
+            <div style={{
+              height:'100%', width:`${pct}%`,
+              background:`linear-gradient(90deg, ${acc.main}cc, ${acc.main})`,
+              borderRadius:6, transition:'width 0.6s ease',
+            }}/>
+          </div>
+          {/* 남은 자리 */}
+          <span style={{fontSize:11, fontWeight:600, color: isFull ? '#dc2626' : acc.main}}>
+            {isFull ? '🔴 마감된 모임입니다' : `${remaining}자리 남았어요`}
           </span>
         </div>
 
-        {/* CTA 버튼 */}
-        {isPast ? (
-          <button
-            onClick={e => { e.stopPropagation(); navigate(`/meeting/${meeting.id}`) }}
-            style={{
-              width:'100%', height:44, borderRadius:22,
-              background:'oklch(92% 0.02 20)', border:'none',
-              color:SP.text3, fontSize:14, fontWeight:700,
-              cursor:'pointer', letterSpacing:'-0.01em',
-            }}>
-            기록 보기
-          </button>
-        ) : (
-          <button
-            onClick={e => { e.stopPropagation(); onJoinToggle(meeting, isJoined) }}
-            disabled={isFull && !isJoined}
-            style={{
-              width:'100%', height:44, borderRadius:22, border:'none',
-              background: isJoined
-                ? `${acc.main}15`
-                : isFull
-                ? 'oklch(92% 0.02 20)'
-                : `linear-gradient(135deg, ${acc.main}, ${acc.main}cc)`,
-              color: isJoined ? acc.main : isFull ? SP.text3 : 'white',
-              outline: isJoined ? `1.5px solid ${acc.main}55` : 'none',
-              fontSize:14, fontWeight:700, letterSpacing:'-0.01em',
-              cursor: isFull && !isJoined ? 'not-allowed' : 'pointer',
-              transition:'all 0.2s',
-              boxShadow: isJoined || isFull ? 'none' : `0 4px 14px ${acc.main}44`,
-            }}>
-            {isJoined ? '✓ 참가 중' : isFull ? '마감된 모임' : '참가하기'}
-          </button>
-        )}
+        {/* CTA 버튼 — 항상 하단 */}
+        <div style={{marginTop:'auto'}}>
+          {isPast ? (
+            <button
+              onClick={e => { e.stopPropagation(); navigate(`/meeting/${meeting.id}`) }}
+              style={{
+                width:'100%', height:44, borderRadius:22,
+                background:'oklch(92% 0.02 20)', border:'none',
+                color:SP.text3, fontSize:14, fontWeight:700,
+                cursor:'pointer', letterSpacing:'-0.01em',
+              }}>
+              기록 보기
+            </button>
+          ) : (
+            <button
+              onClick={e => { e.stopPropagation(); onJoinToggle(meeting, isJoined) }}
+              disabled={isFull && !isJoined}
+              style={{
+                width:'100%', height:44, borderRadius:22, border:'none',
+                background: isJoined
+                  ? `${acc.main}15`
+                  : isFull
+                  ? 'oklch(92% 0.02 20)'
+                  : `linear-gradient(135deg, ${acc.main}, ${acc.main}cc)`,
+                color: isJoined ? acc.main : isFull ? SP.text3 : 'white',
+                outline: isJoined ? `1.5px solid ${acc.main}55` : 'none',
+                fontSize:14, fontWeight:700, letterSpacing:'-0.01em',
+                cursor: isFull && !isJoined ? 'not-allowed' : 'pointer',
+                transition:'all 0.2s',
+                boxShadow: isJoined || isFull ? 'none' : `0 4px 14px ${acc.main}44`,
+              }}>
+              {isJoined ? '✓ 참가 중' : isFull ? '마감된 모임' : '참가하기'}
+            </button>
+          )}
+        </div>
       </div>
     </div>
   )
