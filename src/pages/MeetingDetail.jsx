@@ -45,6 +45,10 @@ export default function MeetingDetail() {
   const [reviewPhotos, setReviewPhotos] = useState([])  // { type:'file'|'url', file?, preview?, url? }
   const [lightboxUrl, setLightboxUrl] = useState(null)
   const photoInputRef = useRef(null)
+  const [comments, setComments] = useState({})            // { [reviewId]: Comment[] }
+  const [commentsOpen, setCommentsOpen] = useState({})    // { [reviewId]: boolean }
+  const [commentDraft, setCommentDraft] = useState({})    // { [reviewId]: string }
+  const [commentSubmitting, setCommentSubmitting] = useState({})
 
   const fetchMeeting = useCallback(async ({ showLoading = false } = {}) => {
     if (showLoading) setLoading(true)
@@ -72,18 +76,40 @@ export default function MeetingDetail() {
       .eq('meeting_id', id)
       .order('created_at', { ascending: true })
     if (!error && data) {
-      const userIds = [...new Set(data.map(r => r.user_id))]
+      // 댓글 일괄 조회
+      let commentsData = []
+      if (data.length > 0) {
+        const { data: cd } = await supabase
+          .from('review_comments')
+          .select('*')
+          .in('review_id', data.map(r => r.id))
+          .order('created_at', { ascending: true })
+        commentsData = cd || []
+      }
+
+      // 후기 + 댓글 작성자 이름 한 번에 조회
+      const allUserIds = [...new Set([
+        ...data.map(r => r.user_id),
+        ...commentsData.map(c => c.user_id),
+      ])]
       let nameMap = {}
-      if (userIds.length > 0) {
+      if (allUserIds.length > 0) {
         const { data: profilesData } = await supabase
-          .from('profiles')
-          .select('id, name')
-          .in('id', userIds)
+          .from('profiles').select('id, name').in('id', allUserIds)
         if (profilesData) profilesData.forEach(p => { nameMap[p.id] = p.name })
       }
+
+      // 댓글을 review_id별로 그룹핑
+      const commentsMap = {}
+      for (const c of commentsData) {
+        if (!commentsMap[c.review_id]) commentsMap[c.review_id] = []
+        commentsMap[c.review_id].push({ ...c, _name: nameMap[c.user_id] || '익명' })
+      }
+      setComments(commentsMap)
       setReviews(data.map(r => ({ ...r, _name: nameMap[r.user_id] || '익명' })))
     } else {
       setReviews([])
+      setComments({})
     }
     setReviewsLoading(false)
   }, [id])
@@ -120,6 +146,29 @@ export default function MeetingDetail() {
     }
     reviewPrefilled.current = true
   }, [myReview])
+
+  function toggleComments(reviewId) {
+    setCommentsOpen(prev => ({ ...prev, [reviewId]: !prev[reviewId] }))
+  }
+
+  async function handleSubmitComment(reviewId) {
+    const text = (commentDraft[reviewId] || '').trim()
+    if (!text || commentSubmitting[reviewId]) return
+    setCommentSubmitting(prev => ({ ...prev, [reviewId]: true }))
+    try {
+      const { error } = await supabase
+        .from('review_comments')
+        .insert({ review_id: reviewId, user_id: user.id, content: text })
+      if (error) throw error
+      setCommentDraft(prev => ({ ...prev, [reviewId]: '' }))
+      setCommentsOpen(prev => ({ ...prev, [reviewId]: true }))
+      await fetchReviews()
+    } catch (err) {
+      console.error('[Comment] 오류:', err)
+    } finally {
+      setCommentSubmitting(prev => ({ ...prev, [reviewId]: false }))
+    }
+  }
 
   async function handleJoin() {
     console.group('[handleJoin]')
@@ -473,6 +522,62 @@ export default function MeetingDetail() {
                           ))}
                         </div>
                       )}
+
+                      {/* ── 댓글 ── */}
+                      {(() => {
+                        const reviewComments = comments[r.id] || []
+                        const isOpen = commentsOpen[r.id]
+                        return (
+                          <div className="review-comments-wrap">
+                            {reviewComments.length > 0 && (
+                              <button
+                                className="review-comments-toggle"
+                                onClick={() => toggleComments(r.id)}
+                              >
+                                💬 댓글 {reviewComments.length}개 {isOpen ? '▲' : '▼'}
+                              </button>
+                            )}
+                            {isOpen && (
+                              <div className="review-comments-list">
+                                {reviewComments.map(c => (
+                                  <div key={c.id} className="review-comment-item">
+                                    <div className="review-comment-avatar">
+                                      {(c._name || '?')[0].toUpperCase()}
+                                    </div>
+                                    <div className="review-comment-body">
+                                      <div className="review-comment-header">
+                                        <span className="review-comment-name">{c._name}</span>
+                                        <span className="review-comment-date">{formatReviewDate(c.created_at)}</span>
+                                      </div>
+                                      <p className="review-comment-content">{c.content}</p>
+                                    </div>
+                                  </div>
+                                ))}
+                              </div>
+                            )}
+                            {user && isJoined && (
+                              <div className="review-comment-form">
+                                <input
+                                  className="review-comment-input"
+                                  type="text"
+                                  placeholder="댓글을 입력하세요..."
+                                  value={commentDraft[r.id] || ''}
+                                  onChange={e => setCommentDraft(prev => ({ ...prev, [r.id]: e.target.value }))}
+                                  onKeyDown={e => { if (e.key === 'Enter') handleSubmitComment(r.id) }}
+                                  maxLength={200}
+                                />
+                                <button
+                                  className="review-comment-submit"
+                                  onClick={() => handleSubmitComment(r.id)}
+                                  disabled={!commentDraft[r.id]?.trim() || commentSubmitting[r.id]}
+                                >
+                                  {commentSubmitting[r.id] ? '...' : '등록'}
+                                </button>
+                              </div>
+                            )}
+                          </div>
+                        )
+                      })()}
                     </div>
                   ))}
                 </div>

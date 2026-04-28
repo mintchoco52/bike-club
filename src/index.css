@@ -1468,3 +1468,100 @@ select.form-input { cursor: pointer; }
   transition: background 0.15s;
 }
 .review-lightbox-close:hover { background: rgba(255,255,255,0.3); }
+
+/* ===== REVIEW COMMENTS ===== */
+.review-comments-wrap {
+  margin-top: 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.review-comments-toggle {
+  align-self: flex-start;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 10px;
+  border-radius: 20px;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-muted);
+  transition: var(--transition);
+}
+.review-comments-toggle:hover {
+  color: var(--primary);
+  border-color: var(--primary);
+  background: var(--primary-light);
+}
+.review-comments-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 10px 12px;
+  background: var(--bg);
+  border-radius: 10px;
+}
+.review-comment-item {
+  display: flex;
+  gap: 8px;
+  align-items: flex-start;
+}
+.review-comment-avatar {
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  background: var(--primary-light);
+  color: var(--primary);
+  font-size: 10px;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+.review-comment-body { flex: 1; min-width: 0; }
+.review-comment-header {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: 2px;
+}
+.review-comment-name { font-size: 11px; font-weight: 700; color: var(--text); }
+.review-comment-date { font-size: 10px; color: var(--text-muted); }
+.review-comment-content { font-size: 12px; color: var(--text); line-height: 1.5; }
+.review-comment-form {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+}
+.review-comment-input {
+  flex: 1;
+  height: 36px;
+  padding: 0 14px;
+  border-radius: 20px;
+  border: 1.5px solid var(--border);
+  background: white;
+  font-size: 12px;
+  color: var(--text);
+  outline: none;
+  transition: border-color 0.2s;
+}
+.review-comment-input:focus { border-color: var(--primary); }
+.review-comment-input::placeholder { color: var(--text-muted); }
+.review-comment-submit {
+  height: 36px;
+  padding: 0 14px;
+  border-radius: 20px;
+  background: var(--primary);
+  color: white;
+  font-size: 12px;
+  font-weight: 700;
+  border: none;
+  cursor: pointer;
+  flex-shrink: 0;
+  transition: background 0.2s;
+}
+.review-comment-submit:hover:not(:disabled) { background: var(--primary-hover); }
+.review-comment-submit:disabled { opacity: 0.45; cursor: not-allowed; }
