@@ -74,8 +74,12 @@ export default function MeetingDetail() {
     ? Math.ceil((new Date(meeting.date) - new Date()) / (1000 * 60 * 60 * 24))
     : 0
 
-  const todayStr = new Date().toISOString().slice(0, 10)
-  const isPast = meeting ? meeting.date < todayStr : false
+  const isPast = (() => {
+    if (!meeting?.date || !meeting?.time) return false
+    const meetingEnd = new Date(`${meeting.date}T${meeting.time}`)
+    meetingEnd.setHours(meetingEnd.getHours() + 2)
+    return new Date() > meetingEnd
+  })()
   const myReview = reviews.find(r => r.user_id === user?.id)
 
   useEffect(() => {
