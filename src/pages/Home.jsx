@@ -95,7 +95,7 @@ export default function Home() {
           <h1>함께 달리는 즐거움 🚴</h1>
           <p>기선자 모임과 함께 새로운 라이딩을 시작해보세요</p>
           <div className="hero-stats">
-            <div className="stat-item"><strong>{meetings.length}</strong><span>예정 모임</span></div>
+            <div className="stat-item"><strong>{meetings.filter(m => !isPast(m)).length}</strong><span>예정 모임</span></div>
             <div className="stat-item"><strong>{uniqueParticipants}</strong><span>활동 회원</span></div>
             <div className="stat-item"><strong>{meetings.reduce((s, m) => s + (m.meeting_participants?.length || 0), 0)}</strong><span>총 참가 수</span></div>
           </div>
