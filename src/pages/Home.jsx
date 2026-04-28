@@ -1,74 +1,7 @@
 import { useState, useEffect, useCallback } from 'react'
-import { useNavigate } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../contexts/AuthContext'
-import { getCyclingPhoto } from '../lib/cyclingPhotos'
-
-const DIFFICULTY_COLOR = { '초급': 'badge-green', '중급': 'badge-orange', '고급': 'badge-red' }
-
-function formatDate(dateStr) {
-  return new Date(dateStr).toLocaleDateString('ko-KR', { month: 'long', day: 'numeric', weekday: 'short' })
-}
-
-function MeetingCard({ meeting, userId, onJoinToggle, isPast }) {
-  const navigate = useNavigate()
-  const participantCount = meeting.meeting_participants?.length ?? 0
-  const isJoined = meeting.meeting_participants?.some(p => p.user_id === userId)
-  const isFull = participantCount >= meeting.max_participants
-
-  const imgSrc = meeting.image || getCyclingPhoto(meeting.id)
-  console.log(`[MeetingCard] id=${meeting.id} imgSrc=${imgSrc}`)
-
-  return (
-    <article className={`meeting-card${isPast ? ' past' : ''}`} onClick={() => navigate(`/meeting/${meeting.id}`)}>
-      <div className="card-img-wrap">
-        <img
-          src={imgSrc}
-          alt={meeting.title}
-          className="card-img"
-          loading="lazy"
-          onError={e => { console.error(`[MeetingCard] 이미지 로드 실패: ${e.target.src}`) }}
-        />
-        <span className={`difficulty-badge ${DIFFICULTY_COLOR[meeting.difficulty] || 'badge-green'}`}>
-          {meeting.difficulty}
-        </span>
-      </div>
-      <div className="card-body">
-        <h3 className="card-title">{meeting.title}</h3>
-        <ul className="card-meta">
-          <li><span className="meta-icon">📅</span>{formatDate(meeting.date)} {meeting.time?.slice(0, 5)}</li>
-          <li><span className="meta-icon">📍</span>{meeting.location}</li>
-          <li><span className="meta-icon">🚴</span>{meeting.distance}</li>
-          <li>
-            <span className="meta-icon">👥</span>
-            <span className={isFull ? 'text-danger' : ''}>
-              {participantCount}/{meeting.max_participants}명
-            </span>
-            {isFull && <span className="full-badge">마감</span>}
-          </li>
-        </ul>
-        <p className="card-desc">{meeting.description}</p>
-        <div className="card-footer">
-          {!isPast && (
-            <button
-              className={`btn btn-sm ${isJoined ? 'btn-outline' : isFull ? 'btn-disabled' : 'btn-primary'}`}
-              onClick={e => { e.stopPropagation(); onJoinToggle(meeting, isJoined) }}
-              disabled={isFull && !isJoined}
-            >
-              {isJoined ? '✓ 참가 중' : isFull ? '마감' : '참가하기'}
-            </button>
-          )}
-          <button
-            className="btn btn-sm btn-ghost"
-            onClick={e => { e.stopPropagation(); navigate(`/meeting/${meeting.id}`) }}
-          >
-            자세히 보기 →
-          </button>
-        </div>
-      </div>
-    </article>
-  )
-}
+import MeetingCard from '../components/MeetingCard'
 
 export default function Home() {
   const { user, profile } = useAuth()
@@ -83,7 +16,7 @@ export default function Home() {
     try {
       const { data, error: err } = await supabase
         .from('meetings')
-        .select('*, meeting_participants(user_id)')
+        .select('*, meeting_participants(user_id, user_name)')
         .order('date', { ascending: true })
       if (err) throw err
       setMeetings(data || [])
