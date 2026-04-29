@@ -12,6 +12,7 @@ export default function Home() {
   const [filter, setFilter] = useState('전체')
   const [tab, setTab] = useState('upcoming')
   const [reviewCounts, setReviewCounts] = useState({})
+  const [reviewHasNew, setReviewHasNew] = useState({})
 
   const fetchMeetings = useCallback(async () => {
     try {
@@ -25,12 +26,18 @@ export default function Home() {
       if (data?.length) {
         const { data: reviewData } = await supabase
           .from('reviews')
-          .select('meeting_id')
+          .select('meeting_id, created_at')
           .in('meeting_id', data.map(m => m.id))
         if (reviewData) {
           const counts = {}
-          reviewData.forEach(r => { counts[r.meeting_id] = (counts[r.meeting_id] || 0) + 1 })
+          const hasNew = {}
+          const threshold = Date.now() - 24 * 60 * 60 * 1000
+          reviewData.forEach(r => {
+            counts[r.meeting_id] = (counts[r.meeting_id] || 0) + 1
+            if (new Date(r.created_at).getTime() > threshold) hasNew[r.meeting_id] = true
+          })
           setReviewCounts(counts)
+          setReviewHasNew(hasNew)
         }
       }
     } catch (err) {
@@ -162,7 +169,7 @@ export default function Home() {
         ) : (
           <div className="meetings-grid">
             {tabFiltered.map(m => (
-              <MeetingCard key={m.id} meeting={m} userId={user?.id} onJoinToggle={handleJoinToggle} isPast={isPast(m)} reviewCount={reviewCounts[m.id] || 0} />
+              <MeetingCard key={m.id} meeting={m} userId={user?.id} onJoinToggle={handleJoinToggle} isPast={isPast(m)} reviewCount={reviewCounts[m.id] || 0} reviewHasNew={reviewHasNew[m.id] || false} />
             ))}
           </div>
         )}

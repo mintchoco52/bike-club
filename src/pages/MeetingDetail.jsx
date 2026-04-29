@@ -24,6 +24,19 @@ function formatReviewDate(str) {
   return new Date(str).toLocaleDateString('ko-KR', { year: 'numeric', month: 'short', day: 'numeric' })
 }
 
+function isNew(dateStr) {
+  return Date.now() - new Date(dateStr).getTime() < 24 * 60 * 60 * 1000
+}
+
+const NEW_BADGE = (
+  <span style={{
+    background: '#ff4444', color: 'white',
+    fontSize: 10, fontWeight: 700,
+    padding: '2px 6px', borderRadius: 10,
+    marginLeft: 4, verticalAlign: 'middle',
+  }}>NEW</span>
+)
+
 const DIFFICULTY_COLOR = { '초급': 'badge-green', '중급': 'badge-orange', '고급': 'badge-red' }
 
 export default function MeetingDetail() {
@@ -504,6 +517,7 @@ export default function MeetingDetail() {
                           <span className="review-author-name">
                             {r._name}
                             {r.user_id === user?.id && <span className="my-badge">나</span>}
+                            {isNew(r.created_at) && NEW_BADGE}
                           </span>
                           <span className="review-date">{formatReviewDate(r.created_at)}</span>
                         </div>
@@ -547,6 +561,7 @@ export default function MeetingDetail() {
                                     <div className="review-comment-body">
                                       <div className="review-comment-header">
                                         <span className="review-comment-name">{c._name}</span>
+                                        {isNew(c.created_at) && NEW_BADGE}
                                         <span className="review-comment-date">{formatReviewDate(c.created_at)}</span>
                                       </div>
                                       <p className="review-comment-content">{c.content}</p>

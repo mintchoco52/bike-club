@@ -51,7 +51,7 @@ function AvatarStack({ participants }) {
   )
 }
 
-export default function MeetingCard({ meeting, userId, onJoinToggle, isPast, reviewCount = 0 }) {
+export default function MeetingCard({ meeting, userId, onJoinToggle, isPast, reviewCount = 0, reviewHasNew = false }) {
   const navigate = useNavigate()
   const [pressed, setPressed] = useState(false)
 
@@ -205,8 +205,9 @@ export default function MeetingCard({ meeting, userId, onJoinToggle, isPast, rev
                   flexShrink:0, fontSize:11, fontWeight:700,
                   padding:'5px 11px', borderRadius:20,
                   background:`${acc.main}18`, color:acc.main,
-                  whiteSpace:'nowrap',
+                  whiteSpace:'nowrap', display:'flex', alignItems:'center', gap:4,
                 }}>
+                  {reviewHasNew && <span style={{ width:7, height:7, borderRadius:'50%', background:'#ff4444', flexShrink:0, display:'inline-block' }} />}
                   💬 후기 {reviewCount}개
                 </span>
               )}
