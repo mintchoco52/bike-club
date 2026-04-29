@@ -207,8 +207,15 @@ export default function MeetingCard({ meeting, userId, onJoinToggle, isPast, rev
                   background:`${acc.main}18`, color:acc.main,
                   whiteSpace:'nowrap', display:'flex', alignItems:'center', gap:4,
                 }}>
-                  {reviewHasNew && <span style={{ width:7, height:7, borderRadius:'50%', background:'#ff4444', flexShrink:0, display:'inline-block' }} />}
                   💬 후기 {reviewCount}개
+                  {reviewHasNew && (
+                    <span style={{
+                      background:'#ff4444', color:'white',
+                      fontSize:10, fontWeight:700,
+                      padding:'2px 6px', borderRadius:10,
+                      marginLeft:4,
+                    }}>NEW</span>
+                  )}
                 </span>
               )}
             </div>
