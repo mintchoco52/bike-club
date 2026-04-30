@@ -216,9 +216,10 @@ export default function Gallery() {
       const path = `${uid}/${Date.now()}_${i}.${ext}`
 
       try {
+        const contentType = file.type || (file.name.match(/\.mov$/i) ? 'video/quicktime' : 'video/mp4')
         const { error: storageErr } = await supabase.storage
           .from('photos')
-          .upload(path, file, { contentType: file.type })
+          .upload(path, file, { contentType, upsert: false })
         if (storageErr) throw new Error(storageErr.message)
 
         const publicUrl = supabase.storage.from('photos').getPublicUrl(path).data.publicUrl
