@@ -177,12 +177,16 @@ export default function Gallery() {
     const ff = new FFmpeg()
     await ff.load({
       coreURL: await toBlobURL(
-        'https://unpkg.com/@ffmpeg/core@0.12.6/dist/esm/ffmpeg-core.js',
+        'https://unpkg.com/@ffmpeg/core-mt@0.12.6/dist/esm/ffmpeg-core.js',
         'text/javascript'
       ),
       wasmURL: await toBlobURL(
-        'https://unpkg.com/@ffmpeg/core@0.12.6/dist/esm/ffmpeg-core.wasm',
+        'https://unpkg.com/@ffmpeg/core-mt@0.12.6/dist/esm/ffmpeg-core.wasm',
         'application/wasm'
+      ),
+      workerURL: await toBlobURL(
+        'https://unpkg.com/@ffmpeg/core-mt@0.12.6/dist/esm/ffmpeg-core.worker.js',
+        'text/javascript'
       ),
     })
     ffmpegRef.current = ff
@@ -204,13 +208,15 @@ export default function Gallery() {
       const inputName = `input.${ext}`
       await ff.writeFile(inputName, await fetchFile(file))
 
-      const args = ['-i', inputName]
-      if (mobile) {
-        args.push('-vf', 'scale=720:-2', '-c:v', 'libx264', '-preset', 'ultrafast', '-crf', '28')
-      } else {
-        args.push('-c:v', 'libx264', '-preset', 'fast', '-crf', '23')
-      }
-      args.push('-c:a', 'aac', '-movflags', '+faststart', 'output.mp4')
+      const args = [
+        '-i', inputName,
+        '-vf', 'scale=-2:720',
+        '-c:v', 'libx264', '-preset', 'ultrafast', '-crf', '28',
+        '-tune', 'fastdecode', '-threads', '0',
+        '-c:a', 'copy',
+        '-movflags', '+faststart',
+        'output.mp4',
+      ]
 
       await ff.exec(args)
       const data = await ff.readFile('output.mp4')
