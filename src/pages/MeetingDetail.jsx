@@ -323,6 +323,7 @@ export default function MeetingDetail() {
     const imageUrl = meeting.image || 'https://bike-club-teal.vercel.app/pwa-512x512.png'
 
     try {
+      console.log("카카오로 넘어갈 URL:", pageUrl)
       window.Kakao.Share.sendDefault({
         objectType: 'feed',
         content: {
