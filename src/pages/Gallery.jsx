@@ -425,7 +425,19 @@ export default function Gallery() {
                   <button className="lightbox-nav lightbox-nav-prev" onClick={e => { e.stopPropagation(); setSelected(filtered[currentIdx - 1]) }}>‹</button>
                 )}
                 {isVideo(selected.url) ? (
-                  <video src={selected.url} controls autoPlay className="lightbox-img" style={{ background: '#000' }} />
+                  <video
+                    controls
+                    autoPlay
+                    playsInline
+                    preload="auto"
+                    crossOrigin="anonymous"
+                    className="lightbox-img"
+                    style={{ width: '100%', height: '100%', objectFit: 'contain', background: '#000' }}
+                  >
+                    <source src={selected.url} type="video/mp4" />
+                    <source src={selected.url} type="video/webm" />
+                    <source src={selected.url} type="video/quicktime" />
+                  </video>
                 ) : (
                   <img src={selected.url} alt={selected.title} className="lightbox-img" />
                 )}
