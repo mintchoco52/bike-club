@@ -426,17 +426,16 @@ export default function Gallery() {
                 )}
                 {isVideo(selected.url) ? (
                   <video
+                    key={selected.url}
                     controls
                     autoPlay
                     playsInline
-                    preload="auto"
-                    crossOrigin="anonymous"
-                    className="lightbox-img"
+                    preload="metadata"
                     style={{ width: '100%', height: '100%', objectFit: 'contain', background: '#000' }}
                   >
                     <source src={selected.url} type="video/mp4" />
                     <source src={selected.url} type="video/webm" />
-                    <source src={selected.url} type="video/quicktime" />
+                    브라우저가 동영상을 지원하지 않습니다.
                   </video>
                 ) : (
                   <img src={selected.url} alt={selected.title} className="lightbox-img" />
