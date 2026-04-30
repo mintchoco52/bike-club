@@ -1593,3 +1593,44 @@ select.form-input { cursor: pointer; }
 .gallery-item:hover .gallery-play-icon {
   background: rgba(0, 0, 0, 0.45);
 }
+
+/* ===== VIDEO CONVERT MODAL ===== */
+.convert-modal {
+  padding: 36px 32px;
+  text-align: center;
+  min-width: 300px;
+  max-width: 380px;
+}
+.convert-modal h3 {
+  font-size: 1.1rem;
+  font-weight: 700;
+  margin-bottom: 8px;
+}
+.convert-desc {
+  font-size: 13px;
+  color: var(--text-muted);
+  margin-bottom: 20px;
+}
+.convert-progress-bar {
+  height: 8px;
+  background: var(--border);
+  border-radius: 8px;
+  overflow: hidden;
+  margin-bottom: 8px;
+}
+.convert-progress-fill {
+  height: 100%;
+  background: var(--primary);
+  border-radius: 8px;
+  transition: width 0.3s ease;
+}
+.convert-progress-text {
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--primary);
+}
+.convert-error {
+  margin-top: 12px;
+  font-size: 13px;
+  color: var(--danger);
+}

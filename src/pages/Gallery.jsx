@@ -68,6 +68,7 @@ export default function Gallery() {
   const { user, profile } = useAuth()
   const fileRef = useRef()
   const commentsEndRef = useRef()
+  const ffmpegRef = useRef(null)
 
   const [photos, setPhotos] = useState([])
   const [meetings, setMeetings] = useState([])
@@ -85,6 +86,10 @@ export default function Gallery() {
   const [comments, setComments] = useState([])
   const [commentText, setCommentText] = useState('')
   const [commentSubmitting, setCommentSubmitting] = useState(false)
+
+  const [converting, setConverting] = useState(false)
+  const [convertProgress, setConvertProgress] = useState(0)
+  const [convertError, setConvertError] = useState('')
 
   const fetchPhotos = useCallback(async () => {
     const { data } = await supabase
@@ -159,22 +164,89 @@ export default function Gallery() {
     return () => window.removeEventListener('keydown', onKey)
   }, [selected, currentIdx, filtered])
 
-  function handleFileSelect(e) {
+  async function getFFmpeg() {
+    if (ffmpegRef.current) return ffmpegRef.current
+    const { FFmpeg } = await import('@ffmpeg/ffmpeg')
+    const { toBlobURL } = await import('@ffmpeg/util')
+    const ff = new FFmpeg()
+    await ff.load({
+      coreURL: await toBlobURL(
+        'https://unpkg.com/@ffmpeg/core@0.12.6/dist/esm/ffmpeg-core.js',
+        'text/javascript'
+      ),
+      wasmURL: await toBlobURL(
+        'https://unpkg.com/@ffmpeg/core@0.12.6/dist/esm/ffmpeg-core.wasm',
+        'application/wasm'
+      ),
+    })
+    ffmpegRef.current = ff
+    return ff
+  }
+
+  async function convertToMp4(file) {
+    const { fetchFile } = await import('@ffmpeg/util')
+    const ff = await getFFmpeg()
+    const progressHandler = ({ progress }) => setConvertProgress(Math.round(progress * 100))
+    ff.on('progress', progressHandler)
+    try {
+      const ext = file.name.split('.').pop().toLowerCase()
+      const inputName = `input.${ext}`
+      await ff.writeFile(inputName, await fetchFile(file))
+      await ff.exec([
+        '-i', inputName,
+        '-c:v', 'libx264', '-preset', 'fast', '-crf', '23',
+        '-c:a', 'aac', '-movflags', '+faststart',
+        'output.mp4',
+      ])
+      const data = await ff.readFile('output.mp4')
+      await ff.deleteFile(inputName)
+      await ff.deleteFile('output.mp4')
+      return new File([data.buffer], file.name.replace(/\.[^.]+$/, '') + '.mp4', { type: 'video/mp4' })
+    } finally {
+      ff.off('progress', progressHandler)
+    }
+  }
+
+  async function handleFileSelect(e) {
     const files = Array.from(e.target.files)
     if (!files.length) return
 
     const MAX_VIDEO = 50 * 1024 * 1024
     const oversized = files.filter(f => f.type.startsWith('video/') && f.size > MAX_VIDEO)
     const valid = files.filter(f => !(f.type.startsWith('video/') && f.size > MAX_VIDEO))
+    e.target.value = ''
 
     if (!valid.length) {
       setUploadError(`파일이 너무 큽니다 (최대 50MB): ${oversized.map(f => f.name).join(', ')}`)
       setShowUploadModal(true)
-      e.target.value = ''
       return
     }
 
-    setPendingFiles(valid.map(f => ({
+    const images = valid.filter(f => !f.type.startsWith('video/'))
+    const videos = valid.filter(f => f.type.startsWith('video/'))
+
+    // 동영상 H.264 변환
+    const convertedVideos = []
+    if (videos.length > 0) {
+      setConverting(true)
+      setConvertProgress(0)
+      setConvertError('')
+      try {
+        for (const video of videos) {
+          setConvertProgress(0)
+          const mp4 = await convertToMp4(video)
+          convertedVideos.push(mp4)
+        }
+      } catch (err) {
+        setConvertError('영상 변환에 실패했습니다: ' + (err.message || '알 수 없는 오류'))
+        setConverting(false)
+        return
+      }
+      setConverting(false)
+    }
+
+    const allFiles = [...images, ...convertedVideos]
+    setPendingFiles(allFiles.map(f => ({
       file: f,
       preview: URL.createObjectURL(f),
       title: cleanFileName(f.name),
@@ -183,7 +255,6 @@ export default function Gallery() {
     setUploadMeeting('')
     setUploadError(oversized.length ? `파일이 너무 큽니다 (최대 50MB): ${oversized.map(f => f.name).join(', ')}` : '')
     setShowUploadModal(true)
-    e.target.value = ''
   }
 
   function closeUploadModal() {
@@ -360,6 +431,22 @@ export default function Gallery() {
           </div>
         )}
       </div>
+
+      {/* ── 영상 변환 모달 ── */}
+      {converting && (
+        <div className="modal-backdrop" style={{ zIndex: 9999 }}>
+          <div className="modal convert-modal">
+            <div style={{ fontSize: 44, marginBottom: 12 }}>🎬</div>
+            <h3>영상을 변환 중입니다...</h3>
+            <p className="convert-desc">잠시만 기다려주세요. 페이지를 닫지 마세요.</p>
+            <div className="convert-progress-bar">
+              <div className="convert-progress-fill" style={{ width: `${convertProgress}%` }} />
+            </div>
+            <p className="convert-progress-text">{convertProgress > 0 ? `${convertProgress}%` : '준비 중...'}</p>
+            {convertError && <p className="convert-error">{convertError}</p>}
+          </div>
+        </div>
+      )}
 
       {/* ── 다중 업로드 모달 ── */}
       {showUploadModal && (
