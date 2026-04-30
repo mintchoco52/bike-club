@@ -1,18 +1,193 @@
 import { useEffect, useState, useCallback, useRef } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
-import { MapContainer, TileLayer, Marker, Popup } from 'react-leaflet'
-import L from 'leaflet'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../contexts/AuthContext'
 import { initKakao } from '../lib/kakao'
 import { getCyclingPhoto } from '../lib/cyclingPhotos'
 
-delete L.Icon.Default.prototype._getIconUrl
-L.Icon.Default.mergeOptions({
-  iconRetinaUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon-2x.png',
-  iconUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon.png',
-  shadowUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-shadow.png',
-})
+const OW_KEY = import.meta.env.VITE_OPENWEATHER_KEY
+
+function getWeatherEmoji(id) {
+  if (id >= 200 && id < 300) return '⛈️'
+  if (id >= 300 && id < 400) return '🌦️'
+  if (id >= 500 && id < 600) return '🌧️'
+  if (id >= 600 && id < 700) return '❄️'
+  if (id >= 700 && id < 800) return '🌫️'
+  if (id === 800) return '☀️'
+  if (id === 801) return '🌤️'
+  if (id === 802) return '⛅'
+  return '☁️'
+}
+
+function getWeatherBg(id) {
+  if (id >= 200 && id < 300) return 'linear-gradient(135deg, #3d4a6b 0%, #5a4a7a 100%)'
+  if (id >= 300 && id < 400) return 'linear-gradient(135deg, #5a7a8a 0%, #4a6a7a 100%)'
+  if (id >= 500 && id < 600) return 'linear-gradient(135deg, #3a6a9a 0%, #2a5a8a 100%)'
+  if (id >= 600 && id < 700) return 'linear-gradient(135deg, #7aaad0 0%, #a0c8e8 100%)'
+  if (id >= 700 && id < 800) return 'linear-gradient(135deg, #7a8fa0 0%, #9aaac0 100%)'
+  if (id === 800) return 'linear-gradient(135deg, #f5a020 0%, #f7c040 100%)'
+  if (id === 801) return 'linear-gradient(135deg, #5aaae0 0%, #88c8f8 100%)'
+  if (id === 802) return 'linear-gradient(135deg, #6a9ab8 0%, #8ab4cc 100%)'
+  return 'linear-gradient(135deg, #6a8098 0%, #8a9eae 100%)'
+}
+
+function pmGrade(val, type) {
+  const thresholds = type === 'pm25'
+    ? [{ max: 15, label: '좋음', color: '#4caf50' }, { max: 35, label: '보통', color: '#ff9800' }, { max: 75, label: '나쁨', color: '#f44336' }]
+    : [{ max: 30, label: '좋음', color: '#4caf50' }, { max: 80, label: '보통', color: '#ff9800' }, { max: 150, label: '나쁨', color: '#f44336' }]
+  return thresholds.find(t => val < t.max) || { label: '매우나쁨', color: '#9c27b0' }
+}
+
+function ridingMsg(id, pm25) {
+  if (pm25 >= 75) return { text: '미세먼지가 매우 나빠 라이딩을 피하세요 😷', ok: false }
+  if (id >= 200 && id < 300) return { text: '뇌우로 라이딩을 취소하는 게 좋겠어요 ⛈️', ok: false }
+  if (id >= 502 && id < 600) return { text: '강한 비로 라이딩을 삼가세요 ☔', ok: false }
+  if (id >= 500 && id < 600) return { text: '비가 오니 우비를 챙기세요 🌧️', ok: null }
+  if (id >= 600 && id < 700) return { text: '눈길에 주의하며 라이딩하세요 ❄️', ok: null }
+  if (pm25 >= 35) return { text: '미세먼지가 나빠 마스크를 착용하세요 😷', ok: null }
+  if (id === 800 || id === 801) return { text: '최고의 라이딩 날씨예요! 🚴', ok: true }
+  if (id <= 803) return { text: '라이딩하기 좋은 날씨예요 😊', ok: true }
+  return { text: '라이딩 가능하지만 날씨를 확인하세요 ⚠️', ok: null }
+}
+
+function WeatherCard({ meeting }) {
+  const [weather, setWeather] = useState(null)
+  const [air, setAir] = useState(null)
+  const [wLoading, setWLoading] = useState(true)
+  const [wError, setWError] = useState(null)
+  const [isForecast, setIsForecast] = useState(false)
+
+  useEffect(() => {
+    if (!meeting?.lat || !meeting?.lng || !OW_KEY) {
+      setWError('날씨 정보를 불러올 수 없습니다')
+      setWLoading(false)
+      return
+    }
+    async function fetchAll() {
+      try {
+        const { lat, lng, date, time } = meeting
+        const meetingTs = new Date(`${date}T${time || '09:00'}`)
+        const diffDays = (meetingTs - Date.now()) / 86400000
+        const useForecast = diffDays > 0 && diffDays <= 5
+        setIsForecast(useForecast)
+
+        if (useForecast) {
+          const [fRes, aRes] = await Promise.all([
+            fetch(`https://api.openweathermap.org/data/2.5/forecast?lat=${lat}&lon=${lng}&appid=${OW_KEY}&units=metric&lang=kr`),
+            fetch(`https://api.openweathermap.org/data/2.5/air_pollution/forecast?lat=${lat}&lon=${lng}&appid=${OW_KEY}`),
+          ])
+          const [fJson, aJson] = await Promise.all([fRes.json(), aRes.json()])
+          const target = meetingTs.getTime() / 1000
+          const closest = fJson.list.reduce((a, b) => Math.abs(b.dt - target) < Math.abs(a.dt - target) ? b : a)
+          const closestAir = aJson.list.reduce((a, b) => Math.abs(b.dt - target) < Math.abs(a.dt - target) ? b : a)
+          setWeather({
+            id: closest.weather[0].id, desc: closest.weather[0].description,
+            temp: closest.main.temp, feels: closest.main.feels_like,
+            humidity: closest.main.humidity, wind: closest.wind.speed,
+            tempMin: closest.main.temp_min, tempMax: closest.main.temp_max,
+          })
+          setAir({ pm25: closestAir.components.pm2_5, pm10: closestAir.components.pm10 })
+        } else {
+          const [wRes, aRes] = await Promise.all([
+            fetch(`https://api.openweathermap.org/data/2.5/weather?lat=${lat}&lon=${lng}&appid=${OW_KEY}&units=metric&lang=kr`),
+            fetch(`https://api.openweathermap.org/data/2.5/air_pollution?lat=${lat}&lon=${lng}&appid=${OW_KEY}`),
+          ])
+          const [wJson, aJson] = await Promise.all([wRes.json(), aRes.json()])
+          setWeather({
+            id: wJson.weather[0].id, desc: wJson.weather[0].description,
+            temp: wJson.main.temp, feels: wJson.main.feels_like,
+            humidity: wJson.main.humidity, wind: wJson.wind.speed,
+            tempMin: wJson.main.temp_min, tempMax: wJson.main.temp_max,
+          })
+          setAir({ pm25: aJson.list[0].components.pm2_5, pm10: aJson.list[0].components.pm10 })
+        }
+      } catch {
+        setWError('날씨 정보를 불러오는 중 오류가 발생했습니다')
+      } finally {
+        setWLoading(false)
+      }
+    }
+    fetchAll()
+  }, [meeting])
+
+  if (wLoading) return (
+    <div className="detail-card weather-card" style={{ minHeight: 180, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+      <div className="spinner" />
+    </div>
+  )
+  if (wError || !weather) return (
+    <div className="detail-card weather-card">
+      <h2 className="section-title">날씨 정보</h2>
+      <p style={{ color: '#888', fontSize: 14 }}>{wError || '날씨 정보 없음'}</p>
+    </div>
+  )
+
+  const emoji = getWeatherEmoji(weather.id)
+  const bg = getWeatherBg(weather.id)
+  const pm25g = pmGrade(air.pm25, 'pm25')
+  const pm10g = pmGrade(air.pm10, 'pm10')
+  const msg = ridingMsg(weather.id, air.pm25)
+  const msgColor = msg.ok === true ? '#b8ffb8' : msg.ok === false ? '#ffb0b0' : '#fff9b0'
+
+  return (
+    <div className="detail-card weather-card" style={{ background: bg, padding: 0, overflow: 'hidden', border: 'none' }}>
+      <div style={{ padding: '20px 20px 16px' }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
+          <h2 className="section-title" style={{ color: 'rgba(255,255,255,0.85)', margin: 0 }}>날씨 정보</h2>
+          <span style={{ fontSize: 11, color: 'rgba(255,255,255,0.7)', background: 'rgba(0,0,0,0.18)', padding: '2px 8px', borderRadius: 10 }}>
+            {isForecast ? '모임 시간 예보' : '현재 기준'}
+          </span>
+        </div>
+
+        <div style={{ display: 'flex', alignItems: 'center', gap: 14, marginBottom: 14 }}>
+          <span style={{ fontSize: 52, lineHeight: 1 }}>{emoji}</span>
+          <div>
+            <div style={{ fontSize: 38, fontWeight: 800, color: '#fff', lineHeight: 1 }}>
+              {Math.round(weather.temp)}°C
+            </div>
+            <div style={{ fontSize: 13, color: 'rgba(255,255,255,0.8)', marginTop: 3, textTransform: 'capitalize' }}>
+              {weather.desc}
+            </div>
+          </div>
+        </div>
+
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8, marginBottom: 12 }}>
+          <div className="weather-detail-item">
+            <span className="weather-detail-label">체감온도</span>
+            <span className="weather-detail-value">{Math.round(weather.feels)}°C</span>
+          </div>
+          <div className="weather-detail-item">
+            <span className="weather-detail-label">습도</span>
+            <span className="weather-detail-value">{weather.humidity}%</span>
+          </div>
+          <div className="weather-detail-item">
+            <span className="weather-detail-label">최고 / 최저</span>
+            <span className="weather-detail-value">{Math.round(weather.tempMax)}° / {Math.round(weather.tempMin)}°</span>
+          </div>
+          <div className="weather-detail-item">
+            <span className="weather-detail-label">바람</span>
+            <span className="weather-detail-value">{weather.wind.toFixed(1)} m/s</span>
+          </div>
+        </div>
+
+        <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+          <span className="weather-pm-badge" style={{ background: pm25g.color }}>
+            PM2.5 {pm25g.label} ({Math.round(air.pm25)})
+          </span>
+          <span className="weather-pm-badge" style={{ background: pm10g.color }}>
+            PM10 {pm10g.label} ({Math.round(air.pm10)})
+          </span>
+        </div>
+      </div>
+
+      <div className="weather-riding-bar">
+        <p style={{ margin: 0, fontSize: 13, fontWeight: 600, color: msgColor }}>
+          {msg.text}
+        </p>
+      </div>
+    </div>
+  )
+}
 
 function formatDate(dateStr) {
   return new Date(dateStr).toLocaleDateString('ko-KR', {
@@ -651,34 +826,7 @@ export default function MeetingDetail() {
             )}
           </div>
 
-          <div className="detail-card map-card">
-            <h2 className="section-title">모임 장소</h2>
-            <p className="map-location-label">📍 {meeting.location}</p>
-            <div className="map-container">
-              <MapContainer
-                center={[meeting.lat, meeting.lng]}
-                zoom={15}
-                style={{ height: '100%', width: '100%', borderRadius: '8px' }}
-                scrollWheelZoom={false}
-              >
-                <TileLayer
-                  attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
-                  url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
-                />
-                <Marker position={[meeting.lat, meeting.lng]}>
-                  <Popup><strong>{meeting.title}</strong><br />{meeting.location}</Popup>
-                </Marker>
-              </MapContainer>
-            </div>
-            <a
-              href={`https://maps.google.com/?q=${meeting.lat},${meeting.lng}`}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="btn btn-outline full-width mt-12"
-            >
-              구글 지도에서 열기 ↗
-            </a>
-          </div>
+          <WeatherCard meeting={meeting} />
         </div>
       </div>
 

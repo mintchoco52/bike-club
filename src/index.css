@@ -1634,3 +1634,41 @@ select.form-input { cursor: pointer; }
   font-size: 13px;
   color: var(--danger);
 }
+
+/* ===== WEATHER CARD ===== */
+.weather-card {
+  border-radius: var(--radius);
+  overflow: hidden;
+  border: none !important;
+  box-shadow: var(--shadow-lg);
+}
+.weather-detail-item {
+  background: rgba(255, 255, 255, 0.18);
+  border-radius: 10px;
+  padding: 8px 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.weather-detail-label {
+  font-size: 11px;
+  color: rgba(255, 255, 255, 0.7);
+  font-weight: 500;
+}
+.weather-detail-value {
+  font-size: 14px;
+  color: #fff;
+  font-weight: 700;
+}
+.weather-pm-badge {
+  color: #fff;
+  font-size: 12px;
+  font-weight: 700;
+  padding: 3px 10px;
+  border-radius: 20px;
+}
+.weather-riding-bar {
+  background: rgba(0, 0, 0, 0.22);
+  padding: 10px 20px;
+  border-top: 1px solid rgba(255, 255, 255, 0.1);
+}
