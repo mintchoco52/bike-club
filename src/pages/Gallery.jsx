@@ -22,6 +22,10 @@ function formatCommentTime(str) {
   return new Date(str).toLocaleDateString('ko-KR', { month: 'short', day: 'numeric' })
 }
 
+function isVideo(url) {
+  return /\.(mp4|mov|webm)$/i.test((url || '').split('?')[0])
+}
+
 function PhotoCard({ photo, user, onOpen, onLike, onDelete }) {
   const isLiked = photo.photo_likes?.some(l => l.user_id === user?.id)
   const likeCount = photo.photo_likes?.length || 0
@@ -29,7 +33,14 @@ function PhotoCard({ photo, user, onOpen, onLike, onDelete }) {
 
   return (
     <div className="gallery-item" onClick={() => onOpen(photo)}>
-      <img src={photo.url} alt={photo.title} className="gallery-img" loading="lazy" />
+      {isVideo(photo.url) ? (
+        <div className="gallery-video-thumb">
+          <video src={photo.url} className="gallery-img" muted preload="metadata" />
+          <div className="gallery-play-icon">▶</div>
+        </div>
+      ) : (
+        <img src={photo.url} alt={photo.title} className="gallery-img" loading="lazy" />
+      )}
       <div className="gallery-item-overlay">
         <div className="gallery-item-info">
           {photo.meeting_title && <p className="gallery-item-meeting">📍 {photo.meeting_title}</p>}
@@ -151,13 +162,26 @@ export default function Gallery() {
   function handleFileSelect(e) {
     const files = Array.from(e.target.files)
     if (!files.length) return
-    setPendingFiles(files.map(f => ({
+
+    const MAX_VIDEO = 50 * 1024 * 1024
+    const oversized = files.filter(f => f.type.startsWith('video/') && f.size > MAX_VIDEO)
+    const valid = files.filter(f => !(f.type.startsWith('video/') && f.size > MAX_VIDEO))
+
+    if (!valid.length) {
+      setUploadError(`파일이 너무 큽니다 (최대 50MB): ${oversized.map(f => f.name).join(', ')}`)
+      setShowUploadModal(true)
+      e.target.value = ''
+      return
+    }
+
+    setPendingFiles(valid.map(f => ({
       file: f,
       preview: URL.createObjectURL(f),
       title: cleanFileName(f.name),
+      isVideo: f.type.startsWith('video/'),
     })))
     setUploadMeeting('')
-    setUploadError('')
+    setUploadError(oversized.length ? `파일이 너무 큽니다 (최대 50MB): ${oversized.map(f => f.name).join(', ')}` : '')
     setShowUploadModal(true)
     e.target.value = ''
   }
@@ -274,8 +298,8 @@ export default function Gallery() {
             <h1>라이딩 갤러리 📷</h1>
             <p>함께한 순간들을 기록하고 공유해보세요</p>
           </div>
-          <button className="btn btn-primary" onClick={() => fileRef.current.click()}>+ 사진 업로드</button>
-          <input ref={fileRef} type="file" accept="image/*" multiple style={{ display: 'none' }} onChange={handleFileSelect} />
+          <button className="btn btn-primary" onClick={() => fileRef.current.click()}>+ 사진·동영상 업로드</button>
+          <input ref={fileRef} type="file" accept="image/*,video/mp4,video/quicktime,video/webm" multiple style={{ display: 'none' }} onChange={handleFileSelect} />
         </div>
 
         {/* 모임별 필터 탭 */}
@@ -293,7 +317,7 @@ export default function Gallery() {
         </div>
 
         <div className="gallery-stats-bar">
-          <span>사진 {filtered.length}장</span>
+          <span>미디어 {filtered.length}개</span>
           <span>❤️ {filtered.reduce((s, p) => s + (p.photo_likes?.length || 0), 0)} 좋아요</span>
         </div>
 
@@ -341,7 +365,7 @@ export default function Gallery() {
         <div className="modal-backdrop" onClick={closeUploadModal}>
           <div className="modal upload-modal" onClick={e => e.stopPropagation()}>
             <div className="modal-header">
-              <h3>사진 업로드 {pendingFiles.length > 1 ? `(${pendingFiles.length}장)` : ''}</h3>
+              <h3>업로드 {pendingFiles.length > 1 ? `(${pendingFiles.length}개)` : ''}</h3>
               <button className="modal-close" onClick={closeUploadModal}>✕</button>
             </div>
             <div className="modal-body">
@@ -349,7 +373,11 @@ export default function Gallery() {
               <div className="upload-grid">
                 {pendingFiles.map((pf, i) => (
                   <div key={i} className="upload-grid-item">
-                    <img src={pf.preview} alt="" className="upload-grid-thumb" />
+                    {pf.isVideo ? (
+                      <video src={pf.preview} className="upload-grid-thumb" muted preload="metadata" />
+                    ) : (
+                      <img src={pf.preview} alt="" className="upload-grid-thumb" />
+                    )}
                     <input
                       className="form-input upload-grid-title"
                       value={pf.title}
@@ -396,7 +424,11 @@ export default function Gallery() {
                 {hasPrev && (
                   <button className="lightbox-nav lightbox-nav-prev" onClick={e => { e.stopPropagation(); setSelected(filtered[currentIdx - 1]) }}>‹</button>
                 )}
-                <img src={selected.url} alt={selected.title} className="lightbox-img" />
+                {isVideo(selected.url) ? (
+                  <video src={selected.url} controls autoPlay className="lightbox-img" style={{ background: '#000' }} />
+                ) : (
+                  <img src={selected.url} alt={selected.title} className="lightbox-img" />
+                )}
                 {hasNext && (
                   <button className="lightbox-nav lightbox-nav-next" onClick={e => { e.stopPropagation(); setSelected(filtered[currentIdx + 1]) }}>›</button>
                 )}
