@@ -22,6 +22,10 @@ function formatCommentTime(str) {
   return new Date(str).toLocaleDateString('ko-KR', { month: 'short', day: 'numeric' })
 }
 
+function isMobile() {
+  return /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent)
+}
+
 function isVideo(url) {
   return /\.(mp4|mov|webm)$/i.test((url || '').split('?')[0])
 }
@@ -90,6 +94,8 @@ export default function Gallery() {
   const [converting, setConverting] = useState(false)
   const [convertProgress, setConvertProgress] = useState(0)
   const [convertError, setConvertError] = useState('')
+  const [showConvertWarning, setShowConvertWarning] = useState(false)
+  const [pendingConvertFiles, setPendingConvertFiles] = useState({ images: [], videos: [], oversized: [] })
 
   const fetchPhotos = useCallback(async () => {
     const { data } = await supabase
@@ -183,62 +189,58 @@ export default function Gallery() {
     return ff
   }
 
-  async function convertToMp4(file) {
+  async function convertToMp4(file, mobile = false) {
     const { fetchFile } = await import('@ffmpeg/util')
     const ff = await getFFmpeg()
-    const progressHandler = ({ progress }) => setConvertProgress(Math.round(progress * 100))
+    const progressHandler = ({ progress }) => {
+      const pct = Math.round(progress * 100)
+      setConvertProgress(pct)
+      console.log(`[FFmpeg] 변환 진행률: ${pct}%`)
+    }
     ff.on('progress', progressHandler)
     try {
+      console.log(`[FFmpeg] 변환 시작: ${file.name} (${(file.size / 1024 / 1024).toFixed(1)}MB) | 모바일: ${mobile}`)
       const ext = file.name.split('.').pop().toLowerCase()
       const inputName = `input.${ext}`
       await ff.writeFile(inputName, await fetchFile(file))
-      await ff.exec([
-        '-i', inputName,
-        '-c:v', 'libx264', '-preset', 'fast', '-crf', '23',
-        '-c:a', 'aac', '-movflags', '+faststart',
-        'output.mp4',
-      ])
+
+      const args = ['-i', inputName]
+      if (mobile) {
+        args.push('-vf', 'scale=720:-2', '-c:v', 'libx264', '-preset', 'ultrafast', '-crf', '28')
+      } else {
+        args.push('-c:v', 'libx264', '-preset', 'fast', '-crf', '23')
+      }
+      args.push('-c:a', 'aac', '-movflags', '+faststart', 'output.mp4')
+
+      await ff.exec(args)
       const data = await ff.readFile('output.mp4')
+      // 메모리 정리
       await ff.deleteFile(inputName)
       await ff.deleteFile('output.mp4')
+      console.log(`[FFmpeg] 변환 완료: ${file.name}`)
       return new File([data.buffer], file.name.replace(/\.[^.]+$/, '') + '.mp4', { type: 'video/mp4' })
     } finally {
       ff.off('progress', progressHandler)
     }
   }
 
-  async function handleFileSelect(e) {
-    const files = Array.from(e.target.files)
-    if (!files.length) return
-
-    const MAX_VIDEO = 50 * 1024 * 1024
-    const oversized = files.filter(f => f.type.startsWith('video/') && f.size > MAX_VIDEO)
-    const valid = files.filter(f => !(f.type.startsWith('video/') && f.size > MAX_VIDEO))
-    e.target.value = ''
-
-    if (!valid.length) {
-      setUploadError(`파일이 너무 큽니다 (최대 50MB): ${oversized.map(f => f.name).join(', ')}`)
-      setShowUploadModal(true)
-      return
-    }
-
-    const images = valid.filter(f => !f.type.startsWith('video/'))
-    const videos = valid.filter(f => f.type.startsWith('video/'))
-
-    // 동영상 H.264 변환
+  async function startConvert({ images, videos, oversized }) {
+    setShowConvertWarning(false)
     const convertedVideos = []
     if (videos.length > 0) {
       setConverting(true)
       setConvertProgress(0)
       setConvertError('')
+      const mobile = isMobile()
       try {
         for (const video of videos) {
           setConvertProgress(0)
-          const mp4 = await convertToMp4(video)
+          const mp4 = await convertToMp4(video, mobile)
           convertedVideos.push(mp4)
         }
       } catch (err) {
-        setConvertError('영상 변환에 실패했습니다: ' + (err.message || '알 수 없는 오류'))
+        console.error('[FFmpeg] 변환 실패:', err)
+        setConvertError('변환 실패. 영상 길이를 줄이거나 PC에서 업로드해주세요.')
         setConverting(false)
         return
       }
@@ -255,6 +257,35 @@ export default function Gallery() {
     setUploadMeeting('')
     setUploadError(oversized.length ? `파일이 너무 큽니다 (최대 50MB): ${oversized.map(f => f.name).join(', ')}` : '')
     setShowUploadModal(true)
+  }
+
+  async function handleFileSelect(e) {
+    if (converting) return
+    const files = Array.from(e.target.files)
+    if (!files.length) return
+    e.target.value = ''
+
+    const MAX_VIDEO = 50 * 1024 * 1024
+    const oversized = files.filter(f => f.type.startsWith('video/') && f.size > MAX_VIDEO)
+    const valid = files.filter(f => !(f.type.startsWith('video/') && f.size > MAX_VIDEO))
+
+    if (!valid.length) {
+      setUploadError(`파일이 너무 큽니다 (최대 50MB): ${oversized.map(f => f.name).join(', ')}`)
+      setShowUploadModal(true)
+      return
+    }
+
+    const images = valid.filter(f => !f.type.startsWith('video/'))
+    const videos = valid.filter(f => f.type.startsWith('video/'))
+
+    // 모바일: 사전 안내 모달 표시
+    if (videos.length > 0 && isMobile()) {
+      setPendingConvertFiles({ images, videos, oversized })
+      setShowConvertWarning(true)
+      return
+    }
+
+    await startConvert({ images, videos, oversized })
   }
 
   function closeUploadModal() {
@@ -431,6 +462,33 @@ export default function Gallery() {
           </div>
         )}
       </div>
+
+      {/* ── 모바일 변환 안내 모달 ── */}
+      {showConvertWarning && (
+        <div className="modal-backdrop" style={{ zIndex: 9998 }}>
+          <div className="modal convert-modal">
+            <div style={{ fontSize: 40, marginBottom: 12 }}>📱</div>
+            <h3>동영상 변환 안내</h3>
+            <p className="convert-desc">
+              동영상 변환에 <strong>3~5분</strong> 정도 걸릴 수 있습니다.<br />
+              변환 중에는 화면을 끄지 말고 기다려주세요.
+            </p>
+            <div style={{ display: 'flex', gap: 8, justifyContent: 'center', marginTop: 20 }}>
+              <button
+                className="btn btn-outline"
+                onClick={() => {
+                  setShowConvertWarning(false)
+                  setPendingConvertFiles({ images: [], videos: [], oversized: [] })
+                }}
+              >취소</button>
+              <button
+                className="btn btn-primary"
+                onClick={() => startConvert(pendingConvertFiles)}
+              >변환 시작</button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* ── 영상 변환 모달 ── */}
       {converting && (
