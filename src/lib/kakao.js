@@ -1,4 +1,4 @@
-const KAKAO_KEY = '85f62fa68eab1a5aaf9003be55997cfe'
+const KAKAO_KEY = 'a59624d5b895f9829cddba0501e7adbd'
 
 export function initKakao() {
   if (!window.Kakao) {
