@@ -324,41 +324,20 @@ export default function MeetingDetail() {
 
     try {
       console.log("카카오로 넘어갈 URL:", pageUrl)
-      // window.Kakao.Share.sendDefault({
-      //   objectType: 'feed',
-      //   content: {
-      //     title: meeting.title,
-      //     description,
-      //     imageUrl,
-      //     imageWidth: 800,
-      //     imageHeight: 400,
-      //     link: { mobileWebUrl: pageUrl, webUrl: pageUrl },
-      //   },
-      //   buttons: [
-      //     {
-      //       title: '모임 자세히 보기',
-      //       link: { mobileWebUrl: pageUrl, webUrl: pageUrl },
-      //     },
-      //   ],
-      // })
       window.Kakao.Share.sendDefault({
         objectType: 'feed',
         content: {
-          title: '테스트 모임',
-          description: '이 링크가 눌리면 변수 문제입니다.',
-          imageUrl: 'https://mud-kage.kakao.com/dn/NTmhS/btqfEUdFAUf/FjKzkZsnoeE4o19klTOVI1/openlink_640x640s.jpg',
-          link: {
-            mobileWebUrl: 'https://bike-club-teal.vercel.app',
-            webUrl: 'https://bike-club-teal.vercel.app',
-          },
+          title: meeting.title,
+          description,
+          imageUrl,
+          imageWidth: 800,
+          imageHeight: 400,
+          link: { mobileWebUrl: pageUrl, webUrl: pageUrl },
         },
         buttons: [
           {
-            title: '테스트 링크 열기',
-            link: {
-              mobileWebUrl: 'https://bike-club-teal.vercel.app',
-              webUrl: 'https://bike-club-teal.vercel.app',
-            },
+            title: '모임 자세히 보기',
+            link: { mobileWebUrl: pageUrl, webUrl: pageUrl },
           },
         ],
       })
