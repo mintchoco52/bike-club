@@ -58,18 +58,37 @@ function WeatherCard({ meeting }) {
   const [isForecast, setIsForecast] = useState(false)
 
   useEffect(() => {
-    if (!meeting?.lat || !meeting?.lng || !OW_KEY) {
-      setWError('날씨 정보를 불러올 수 없습니다')
+    if (!OW_KEY) {
+      setWError('날씨 API 키가 없습니다')
       setWLoading(false)
       return
     }
     async function fetchAll() {
       try {
-        const { lat, lng, date, time } = meeting
+        const { date, time, location } = meeting
         const meetingTs = new Date(`${date}T${time || '09:00'}`)
         const diffDays = (meetingTs - Date.now()) / 86400000
         const useForecast = diffDays > 0 && diffDays <= 5
         setIsForecast(useForecast)
+
+        // 좌표가 서울 시청 기본값이거나 없으면 location 텍스트로 지오코딩
+        const isDefaultCoords =
+          !meeting.lat || !meeting.lng ||
+          (Math.abs(meeting.lat - 37.5665) < 0.0002 && Math.abs(meeting.lng - 126.9780) < 0.0002)
+
+        let lat = meeting.lat
+        let lng = meeting.lng
+
+        if (isDefaultCoords && location) {
+          const gRes = await fetch(
+            `https://api.openweathermap.org/geo/1.0/direct?q=${encodeURIComponent(location)}&limit=1&appid=${OW_KEY}`
+          )
+          const gJson = await gRes.json()
+          if (gJson.length > 0) {
+            lat = gJson[0].lat
+            lng = gJson[0].lon
+          }
+        }
 
         if (useForecast) {
           const [fRes, aRes] = await Promise.all([
