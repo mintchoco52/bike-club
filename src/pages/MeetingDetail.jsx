@@ -317,7 +317,7 @@ export default function MeetingDetail() {
       return
     }
 
-    const pageUrl = `https://bike-club-teal.vercel.app/meeting/${meeting.id}`
+    const pageUrl = `https://bike-club-teal.vercel.app/meeting/${meeting.id}?t=${Date.now()}`
     const description = `📅 ${formatDate(meeting.date)} ${meeting.time?.slice(0, 5) || ''} · 📍 ${meeting.location} · 👥 ${participants.length}/${meeting.max_participants}명`
 
     const imageUrl = meeting.image || 'https://bike-club-teal.vercel.app/pwa-512x512.png'
