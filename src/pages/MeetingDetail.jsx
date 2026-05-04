@@ -242,6 +242,7 @@ export default function MeetingDetail() {
   const [loading, setLoading] = useState(true)
   const [joining, setJoining] = useState(false)
   const [joinError, setJoinError] = useState('')
+  const [deleting, setDeleting] = useState(false)
 
   // 후기
   const [reviews, setReviews] = useState([])
@@ -323,6 +324,7 @@ export default function MeetingDetail() {
 
   const isJoined = participants.some(p => p.user_id === user?.id)
   const isFull = meeting && participants.length >= meeting.max_participants
+  const isOrganizer = !!user && !!meeting && user.id === meeting.created_by
   const daysUntil = meeting
     ? Math.ceil((new Date(meeting.date) - new Date()) / (1000 * 60 * 60 * 24))
     : 0
@@ -441,6 +443,21 @@ export default function MeetingDetail() {
     } finally {
       setJoining(false)
       console.groupEnd()
+    }
+  }
+
+  async function handleDelete() {
+    if (!window.confirm('정말 삭제하시겠습니까?')) return
+    setDeleting(true)
+    try {
+      const { error } = await supabase.from('meetings').delete().eq('id', id)
+      if (error) throw error
+      navigate('/')
+    } catch (err) {
+      console.error('[Delete] 오류:', err)
+      alert('삭제 중 오류가 발생했습니다: ' + err.message)
+    } finally {
+      setDeleting(false)
     }
   }
 
@@ -842,6 +859,19 @@ export default function MeetingDetail() {
                 </svg>
                 카카오톡으로 공유
               </button>
+            )}
+
+            {isOrganizer && (
+              <>
+                <div style={{ height: 1, background: 'var(--border)', margin: '12px 0' }} />
+                <button
+                  className="btn btn-danger full-width"
+                  onClick={handleDelete}
+                  disabled={deleting}
+                >
+                  {deleting ? <span className="btn-spinner" /> : '🗑️ 모임 삭제'}
+                </button>
+              </>
             )}
           </div>
 
