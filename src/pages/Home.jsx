@@ -1,11 +1,22 @@
 import { useState, useEffect, useCallback } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../contexts/AuthContext'
 import MeetingCard from '../components/MeetingCard'
 
+function formatShortDate(dateStr) {
+  return new Date(dateStr).toLocaleDateString('ko-KR', { month: 'numeric', day: 'numeric', weekday: 'short' })
+}
+
+function isVideoUrl(url = '') {
+  return /\.(mp4|webm|mov)(\?|#|$)/i.test(url)
+}
+
 export default function Home() {
+  const navigate = useNavigate()
   const { user, profile } = useAuth()
   const [meetings, setMeetings] = useState([])
+  const [latestPhotos, setLatestPhotos] = useState([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
   const [search, setSearch] = useState('')
@@ -22,6 +33,13 @@ export default function Home() {
         .order('date', { ascending: true })
       if (err) throw err
       setMeetings(data || [])
+
+      const { data: photoData } = await supabase
+        .from('photos')
+        .select('id, url, title, created_at')
+        .order('created_at', { ascending: false })
+        .limit(4)
+      setLatestPhotos(photoData || [])
 
       if (data?.length) {
         const { data: reviewData } = await supabase
@@ -85,6 +103,12 @@ export default function Home() {
     ? filtered.filter(m => !isPast(m))
     : filtered.filter(m => isPast(m)).reverse()
 
+  const upcomingMeetings = meetings.filter(m => !isPast(m))
+  const nextMeeting = [...upcomingMeetings].sort((a, b) => {
+    const aTime = new Date(`${a.date}T${a.time || '09:00'}`).getTime()
+    const bTime = new Date(`${b.date}T${b.time || '09:00'}`).getTime()
+    return aTime - bTime
+  })[0]
   const uniqueParticipants = new Set(meetings.flatMap(m => (m.meeting_participants || []).map(p => p.user_id))).size
 
   return (
@@ -102,10 +126,20 @@ export default function Home() {
           <h1>함께 달리는 즐거움 🚴</h1>
           <p>기선자 모임과 함께 새로운 라이딩을 시작해보세요</p>
           <div className="hero-stats">
-            <div className="stat-item"><strong>{meetings.filter(m => !isPast(m)).length}</strong><span>예정 모임</span></div>
+            <div className="stat-item"><strong>{upcomingMeetings.length}</strong><span>예정 모임</span></div>
             <div className="stat-item"><strong>{uniqueParticipants}</strong><span>활동 회원</span></div>
             <div className="stat-item"><strong>{meetings.reduce((s, m) => s + (m.meeting_participants?.length || 0), 0)}</strong><span>총 참가 수</span></div>
           </div>
+          {nextMeeting && (
+            <button className="weekly-highlight" onClick={() => navigate(`/meeting/${nextMeeting.id}`)}>
+              <span className="weekly-date">{formatShortDate(nextMeeting.date)}</span>
+              <span className="weekly-copy">
+                <strong>이번 주 하이라이트 · {nextMeeting.title}</strong>
+                <span>{nextMeeting.time?.slice(0, 5)} · {nextMeeting.location} · {Math.max(0, nextMeeting.max_participants - (nextMeeting.meeting_participants?.length || 0))}자리 남음</span>
+              </span>
+              <span className="weekly-pill">라이딩 지수 확인</span>
+            </button>
+          )}
         </div>
       </section>
 
@@ -172,6 +206,29 @@ export default function Home() {
               <MeetingCard key={m.id} meeting={m} userId={user?.id} onJoinToggle={handleJoinToggle} isPast={isPast(m)} reviewCount={reviewCounts[m.id] || 0} reviewHasNew={reviewHasNew[m.id] || false} />
             ))}
           </div>
+        )}
+
+        {latestPhotos.length > 0 && (
+          <section className="home-gallery">
+            <div className="home-gallery-head">
+              <h2>최신 라이딩 기록</h2>
+              <button type="button" onClick={() => navigate('/gallery')}>전체 보기</button>
+            </div>
+            <div className="home-gallery-strip">
+              {latestPhotos.map(photo => (
+                <button
+                  key={photo.id}
+                  type="button"
+                  className={`home-gallery-tile${isVideoUrl(photo.url) ? ' video' : ''}`}
+                  style={{ backgroundImage: isVideoUrl(photo.url) ? undefined : `linear-gradient(to top, rgba(0,0,0,0.34), transparent 62%), url(${photo.url})` }}
+                  onClick={() => navigate('/gallery')}
+                >
+                  {isVideoUrl(photo.url) ? <video src={photo.url} muted playsInline preload="metadata" /> : null}
+                  <span>{photo.title || '라이딩 기록'}</span>
+                </button>
+              ))}
+            </div>
+          </section>
         )}
       </div>
     </div>

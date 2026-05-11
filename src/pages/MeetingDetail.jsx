@@ -50,6 +50,22 @@ function ridingMsg(id, pm25) {
   return { text: '라이딩 가능하지만 날씨를 확인하세요 ⚠️', ok: null }
 }
 
+function ridingScore(weather, air) {
+  if (!weather || !air) return 60
+  let score = 92
+  if (weather.id >= 200 && weather.id < 300) score -= 55
+  else if (weather.id >= 500 && weather.id < 600) score -= 35
+  else if (weather.id >= 600 && weather.id < 700) score -= 30
+  else if (weather.id >= 700 && weather.id < 800) score -= 18
+  if (weather.wind >= 8) score -= 22
+  else if (weather.wind >= 5) score -= 10
+  if (weather.temp <= 3 || weather.temp >= 32) score -= 20
+  else if (weather.temp <= 8 || weather.temp >= 29) score -= 10
+  if (air.pm25 >= 75) score -= 35
+  else if (air.pm25 >= 35) score -= 18
+  return Math.max(8, Math.min(98, Math.round(score)))
+}
+
 function WeatherCard({ meeting }) {
   const [weather, setWeather] = useState(null)
   const [air, setAir] = useState(null)
@@ -147,6 +163,7 @@ function WeatherCard({ meeting }) {
   const pm10g = pmGrade(air.pm10, 'pm10')
   const msg = ridingMsg(weather.id, air.pm25)
   const msgColor = msg.ok === true ? '#b8ffb8' : msg.ok === false ? '#ffb0b0' : '#fff9b0'
+  const score = ridingScore(weather, air)
 
   return (
     <div className="detail-card weather-card" style={{ background: bg, padding: 0, overflow: 'hidden', border: 'none' }}>
@@ -167,6 +184,16 @@ function WeatherCard({ meeting }) {
             <div style={{ fontSize: 13, color: 'rgba(255,255,255,0.8)', marginTop: 3, textTransform: 'capitalize' }}>
               {weather.desc}
             </div>
+          </div>
+        </div>
+
+        <div className="weather-score">
+          <div>
+            <strong>{score}</strong>
+            <span>라이딩 지수</span>
+          </div>
+          <div className="weather-score-track">
+            <i style={{ width: `${score}%` }} />
           </div>
         </div>
 
@@ -878,6 +905,22 @@ export default function MeetingDetail() {
           <WeatherCard meeting={meeting} />
         </div>
       </div>
+
+      {!isPast && (
+        <div className="mobile-join-cta">
+          <div>
+            <strong>{meeting.title}</strong>
+            <span>{formatDate(meeting.date)} · {Math.max(0, meeting.max_participants - participants.length)}자리 남음</span>
+          </div>
+          <button
+            type="button"
+            onClick={handleJoin}
+            disabled={(isFull && !isJoined) || joining}
+          >
+            {isJoined ? '참가 취소' : isFull ? '마감' : '참가하기'}
+          </button>
+        </div>
+      )}
 
       {lightboxUrl && (
         <div className="review-lightbox" onClick={() => setLightboxUrl(null)}>

@@ -63,6 +63,7 @@ export default function MeetingCard({ meeting, userId, onJoinToggle, isPast, rev
 
   const acc = ACCENTS[DIFF_ACCENT[meeting.difficulty]] ?? ACCENTS.sage
   const emoji = DIFF_EMOJI[meeting.difficulty] ?? '🚴'
+  const isAlmostFull = !isFull && meeting.max_participants > 0 && remaining <= Math.ceil(meeting.max_participants * 0.25)
 
   const dateStr = new Date(meeting.date).toLocaleDateString('ko-KR', {
     month:'long', day:'numeric', weekday:'short',
@@ -84,8 +85,8 @@ export default function MeetingCard({ meeting, userId, onJoinToggle, isPast, rev
         borderRadius:22, overflow:'hidden', background:'white',
         boxShadow: isPast
           ? '0 1px 6px rgba(0,0,0,0.06)'
-          : `0 4px 22px ${acc.main}25, 0 1px 4px rgba(0,0,0,0.05)`,
-        border:`1px solid ${acc.light}`,
+          : `0 18px 45px rgba(31,41,55,0.08), 0 8px 26px ${acc.main}20`,
+        border:`1px solid rgba(31,41,55,0.06)`,
         transform: pressed ? 'scale(0.985)' : 'scale(1)',
         transition:'transform 0.12s ease',
         cursor:'pointer',
@@ -149,6 +150,36 @@ export default function MeetingCard({ meeting, userId, onJoinToggle, isPast, rev
               <span style={{fontSize:11, fontWeight:500, color:SP.text2}}>{c.label}</span>
             </div>
           ))}
+        </div>
+
+        <div style={{display:'flex', flexWrap:'wrap', gap:6}}>
+          {!isPast && (
+            <span style={{
+              fontSize:11, fontWeight:800, color:acc.main,
+              background:`${acc.main}16`, borderRadius:20,
+              padding:'5px 9px',
+            }}>
+              라이딩 지수 확인
+            </span>
+          )}
+          {isAlmostFull && (
+            <span style={{
+              fontSize:11, fontWeight:800, color:'#d9466f',
+              background:'#fff1f4', borderRadius:20,
+              padding:'5px 9px',
+            }}>
+              마감 임박
+            </span>
+          )}
+          {meeting.difficulty === '초급' && !isPast && (
+            <span style={{
+              fontSize:11, fontWeight:800, color:'#2563eb',
+              background:'#eaf4ff', borderRadius:20,
+              padding:'5px 9px',
+            }}>
+              초급 추천
+            </span>
+          )}
         </div>
 
         {/* 설명 */}
