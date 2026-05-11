@@ -12,6 +12,11 @@ function isVideoUrl(url = '') {
   return /\.(mp4|webm|mov)(\?|#|$)/i.test(url)
 }
 
+function getRidingScoreLabel(meeting) {
+  if (!meeting) return { score: '--', text: '예정 모임 등록 후 확인', tone: 'muted' }
+  return { score: 82, text: '라이딩 지수 좋음', tone: 'good' }
+}
+
 export default function Home() {
   const navigate = useNavigate()
   const { user, profile } = useAuth()
@@ -109,6 +114,7 @@ export default function Home() {
     const bTime = new Date(`${b.date}T${b.time || '09:00'}`).getTime()
     return aTime - bTime
   })[0]
+  const ridingScore = getRidingScoreLabel(nextMeeting)
   const uniqueParticipants = new Set(meetings.flatMap(m => (m.meeting_participants || []).map(p => p.user_id))).size
 
   return (
@@ -129,6 +135,10 @@ export default function Home() {
             <div className="stat-item"><strong>{upcomingMeetings.length}</strong><span>예정 모임</span></div>
             <div className="stat-item"><strong>{uniqueParticipants}</strong><span>활동 회원</span></div>
             <div className="stat-item"><strong>{meetings.reduce((s, m) => s + (m.meeting_participants?.length || 0), 0)}</strong><span>총 참가 수</span></div>
+            <div className={`stat-item riding-stat ${ridingScore.tone}`}>
+              <strong>{ridingScore.score}</strong>
+              <span>{ridingScore.text}</span>
+            </div>
           </div>
           {nextMeeting && (
             <button className="weekly-highlight" onClick={() => navigate(`/meeting/${nextMeeting.id}`)}>
@@ -223,7 +233,9 @@ export default function Home() {
                   style={{ backgroundImage: isVideoUrl(photo.url) ? undefined : `linear-gradient(to top, rgba(0,0,0,0.34), transparent 62%), url(${photo.url})` }}
                   onClick={() => navigate('/gallery')}
                 >
-                  {isVideoUrl(photo.url) ? <video src={photo.url} muted playsInline preload="metadata" /> : null}
+                  {isVideoUrl(photo.url)
+                    ? <video src={photo.url} muted playsInline preload="metadata" />
+                    : <img src={photo.url} alt={photo.title || '라이딩 기록'} loading="lazy" />}
                   <span>{photo.title || '라이딩 기록'}</span>
                 </button>
               ))}
