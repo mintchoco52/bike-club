@@ -257,12 +257,100 @@ input, textarea, select {
   33%       { transform: translateY(-10px) rotate(14deg); }
   66%       { transform: translateY(5px)  rotate(-9deg); }
 }
+.hero-welcome {
+  display: inline-flex;
+  align-items: center;
+  gap: 14px;
+  padding: 14px 28px;
+  margin-bottom: 22px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.6);
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.08);
+  font-size: 1.35rem;
+  color: oklch(32% 0.04 20);
+  animation: welcomeFadeIn 0.6s ease-out;
+}
+.hero-welcome-emoji { font-size: 1.8rem; }
+.hero-welcome-text strong { font-weight: 800; font-size: 1.5rem; color: oklch(50% 0.13 355); }
+@media (max-width: 600px) {
+  .hero-welcome { font-size: 1.1rem; padding: 12px 22px; gap: 10px; }
+  .hero-welcome-emoji { font-size: 1.5rem; }
+  .hero-welcome-text strong { font-size: 1.2rem; }
+}
+@keyframes welcomeFadeIn {
+  from { opacity: 0; transform: translateY(-6px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
 .hero-content h1 { font-size: 2.2rem; font-weight: 800; margin-bottom: 12px; color: oklch(25% 0.04 20); }
 .hero-content > p { font-size: 1.05rem; margin-bottom: 36px; color: oklch(42% 0.04 20); }
+
 .hero-stats { display: flex; justify-content: center; gap: 40px; flex-wrap: wrap; }
 .stat-item { display: flex; flex-direction: column; align-items: center; gap: 4px; }
 .stat-item strong { font-size: 2rem; font-weight: 800; color: oklch(50% 0.13 355); }
 .stat-item span { font-size: 0.85rem; color: oklch(48% 0.04 20); }
+
+.daily-quote {
+  position: relative;
+  margin: 28px 0;
+  padding: 28px 32px 26px;
+  border-radius: 22px;
+  background:
+    radial-gradient(circle at 92% 12%, rgba(255, 209, 220, 0.45), transparent 55%),
+    linear-gradient(135deg, #fffaf3 0%, #fff1ee 50%, #f4f0ff 100%);
+  box-shadow: 0 6px 24px rgba(70, 40, 80, 0.08);
+  border: 1px solid rgba(255, 255, 255, 0.7);
+  text-align: center;
+  overflow: hidden;
+}
+.daily-quote::before {
+  content: '🚲';
+  position: absolute;
+  top: 14px;
+  left: 18px;
+  font-size: 1.4rem;
+  opacity: 0.65;
+}
+.daily-quote-label {
+  display: inline-block;
+  padding: 4px 12px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.7);
+  font-size: 0.78rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  color: oklch(50% 0.13 355);
+  margin-bottom: 14px;
+}
+.daily-quote-text {
+  position: relative;
+  margin: 0 auto 12px;
+  max-width: 720px;
+  font-size: 1.25rem;
+  line-height: 1.55;
+  font-weight: 600;
+  color: oklch(28% 0.04 20);
+  font-style: normal;
+}
+.daily-quote-mark {
+  font-size: 1.6rem;
+  color: oklch(60% 0.12 355);
+  margin-right: 4px;
+  vertical-align: -2px;
+}
+.daily-quote-author {
+  display: block;
+  font-size: 0.92rem;
+  color: oklch(45% 0.04 20);
+  font-style: normal;
+}
+@media (max-width: 600px) {
+  .daily-quote { padding: 22px 20px 20px; margin: 20px 0; border-radius: 18px; }
+  .daily-quote-text { font-size: 1.05rem; }
+  .daily-quote::before { font-size: 1.1rem; top: 10px; left: 14px; }
+}
+
 .toolbar {
   display: flex;
   align-items: center;

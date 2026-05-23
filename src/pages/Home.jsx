@@ -1,8 +1,9 @@
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useMemo } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../contexts/AuthContext'
 import MeetingCard from '../components/MeetingCard'
+import { getQuoteOfTheDay } from '../lib/cyclingQuotes'
 
 function formatShortDate(dateStr) {
   return new Date(dateStr).toLocaleDateString('ko-KR', { month: 'numeric', day: 'numeric', weekday: 'short' })
@@ -17,6 +18,14 @@ function getRidingScoreLabel(meeting) {
   return { score: 82, text: '라이딩 지수 좋음', tone: 'good' }
 }
 
+function getGreeting() {
+  const h = new Date().getHours()
+  if (h < 6)  return { text: '늦은 밤이에요', emoji: '🌙' }
+  if (h < 12) return { text: '좋은 아침이에요', emoji: '☀️' }
+  if (h < 18) return { text: '좋은 오후에요', emoji: '🌤️' }
+  return { text: '좋은 저녁이에요', emoji: '🌆' }
+}
+
 export default function Home() {
   const navigate = useNavigate()
   const { user, profile } = useAuth()
@@ -24,11 +33,10 @@ export default function Home() {
   const [latestPhotos, setLatestPhotos] = useState([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
-  const [search, setSearch] = useState('')
-  const [filter, setFilter] = useState('전체')
   const [tab, setTab] = useState('upcoming')
   const [reviewCounts, setReviewCounts] = useState({})
   const [reviewHasNew, setReviewHasNew] = useState({})
+  const dailyQuote = useMemo(() => getQuoteOfTheDay(), [])
 
   const fetchMeetings = useCallback(async () => {
     try {
@@ -97,16 +105,9 @@ export default function Home() {
     return new Date() > endTime
   }
 
-  const difficulties = ['전체', '초급', '중급', '고급']
-  const filtered = meetings.filter(m => {
-    const matchSearch = m.title.includes(search) || m.location.includes(search)
-    const matchFilter = filter === '전체' || m.difficulty === filter
-    return matchSearch && matchFilter
-  })
-
   const tabFiltered = tab === 'upcoming'
-    ? filtered.filter(m => !isPast(m))
-    : filtered.filter(m => isPast(m)).reverse()
+    ? meetings.filter(m => !isPast(m))
+    : meetings.filter(m => isPast(m)).reverse()
 
   const upcomingMeetings = meetings.filter(m => !isPast(m))
   const nextMeeting = [...upcomingMeetings].sort((a, b) => {
@@ -129,6 +130,14 @@ export default function Home() {
         <span className="hero-petal" aria-hidden="true" style={{width:20,height:20,top:'35%',left:'22%',background:'oklch(90% 0.05 300)',animationDelay:'3s'}}/>
 
         <div className="hero-content">
+          {profile?.name && (
+            <div className="hero-welcome">
+              <span className="hero-welcome-emoji" aria-hidden="true">{getGreeting().emoji}</span>
+              <span className="hero-welcome-text">
+                {getGreeting().text}, <strong>{profile.name}</strong>님!
+              </span>
+            </div>
+          )}
           <h1>함께 달리는 즐거움 🚴</h1>
           <p>기선자 모임과 함께 새로운 라이딩을 시작해보세요</p>
           <div className="hero-stats">
@@ -154,25 +163,14 @@ export default function Home() {
       </section>
 
       <div className="container">
-        <div className="toolbar">
-          <div className="search-wrap">
-            <span className="search-icon">🔍</span>
-            <input
-              className="search-input"
-              type="text"
-              placeholder="모임 이름, 장소 검색..."
-              value={search}
-              onChange={e => setSearch(e.target.value)}
-            />
-          </div>
-          <div className="filter-tabs">
-            {difficulties.map(d => (
-              <button key={d} className={`filter-tab ${filter === d ? 'active' : ''}`} onClick={() => setFilter(d)}>
-                {d}
-              </button>
-            ))}
-          </div>
-        </div>
+        <section className="daily-quote" aria-label="오늘의 자전거 명언">
+          <span className="daily-quote-label">오늘의 한 줄</span>
+          <blockquote className="daily-quote-text">
+            <span className="daily-quote-mark" aria-hidden="true">“</span>
+            {dailyQuote.text}
+          </blockquote>
+          <cite className="daily-quote-author">— {dailyQuote.author}</cite>
+        </section>
 
         <div className="time-tabs">
           <button
@@ -204,11 +202,7 @@ export default function Home() {
           <div className="empty-state"><p>⚠️ {error}</p><button className="btn btn-primary btn-sm" onClick={fetchMeetings}>다시 시도</button></div>
         ) : tabFiltered.length === 0 ? (
           <div className="empty-state">
-            <p>
-              {search || filter !== '전체'
-                ? '검색 결과가 없습니다'
-                : tab === 'upcoming' ? '아직 예정된 모임이 없습니다' : '지난 모임이 없습니다'}
-            </p>
+            <p>{tab === 'upcoming' ? '아직 예정된 모임이 없습니다' : '지난 모임이 없습니다'}</p>
           </div>
         ) : (
           <div className="meetings-grid">
