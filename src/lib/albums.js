@@ -41,30 +41,102 @@ export async function fetchAlbums() {
   if (!albums?.length) return []
 
   const ids = albums.map(a => a.id)
-  const { data: photos, error: pErr } = await supabase
-    .from('album_photos')
-    .select('id, album_id, url, uploader_id, uploader_name, created_at')
-    .in('album_id', ids)
-    .order('created_at', { ascending: false })
-  if (pErr) throw pErr
+  const [photosRes, commentsRes] = await Promise.all([
+    supabase
+      .from('album_photos')
+      .select('id, album_id, url, uploader_id, uploader_name, created_at')
+      .in('album_id', ids)
+      .order('created_at', { ascending: false }),
+    supabase
+      .from('album_comments')
+      .select('id, album_id, user_id, user_name, content, created_at')
+      .in('album_id', ids)
+      .order('created_at', { ascending: true }),
+  ])
+  if (photosRes.error) throw photosRes.error
+  if (commentsRes.error) throw commentsRes.error
 
-  const byAlbum = new Map()
-  for (const p of photos || []) {
-    if (!byAlbum.has(p.album_id)) byAlbum.set(p.album_id, [])
-    byAlbum.get(p.album_id).push(p)
+  const photosByAlbum = new Map()
+  for (const p of photosRes.data || []) {
+    if (!photosByAlbum.has(p.album_id)) photosByAlbum.set(p.album_id, [])
+    photosByAlbum.get(p.album_id).push(p)
+  }
+  const commentsByAlbum = new Map()
+  for (const c of commentsRes.data || []) {
+    if (!commentsByAlbum.has(c.album_id)) commentsByAlbum.set(c.album_id, [])
+    commentsByAlbum.get(c.album_id).push(c)
   }
 
   return albums.map(a => {
-    const list = byAlbum.get(a.id) || []
-    const uploaderIds = new Set(list.map(p => p.uploader_id).filter(Boolean))
+    const photoList = photosByAlbum.get(a.id) || []
+    const commentList = commentsByAlbum.get(a.id) || []
+    // 업로더 정보 - 이름 기준으로 unique (id가 같아도 이름이 비어있을 수 있음)
+    const seenIds = new Set()
+    const uploaders = []
+    for (const p of photoList) {
+      const key = p.uploader_id || `name:${p.uploader_name}`
+      if (seenIds.has(key)) continue
+      seenIds.add(key)
+      uploaders.push({ id: p.uploader_id, name: p.uploader_name || '익명' })
+    }
     return {
       ...a,
-      photoCount: list.length,
-      uploaderCount: uploaderIds.size,
-      coverPhotos: list.slice(0, 4),
-      allPhotos: list,
+      photoCount: photoList.length,
+      uploaderCount: uploaders.length,
+      uploaders,
+      commentCount: commentList.length,
+      comments: commentList,
+      coverPhotos: photoList.slice(0, 6),
+      allPhotos: photoList,
     }
   })
+}
+
+/**
+ * 앨범 댓글 추가
+ */
+export async function addAlbumComment({ albumId, userId, userName, content }) {
+  const { data, error } = await supabase
+    .from('album_comments')
+    .insert({
+      album_id: albumId,
+      user_id: userId,
+      user_name: userName || '',
+      content: content.trim(),
+    })
+    .select()
+    .single()
+  if (error) throw error
+  return data
+}
+
+/**
+ * 앨범 댓글 삭제 (본인 댓글만)
+ */
+export async function deleteAlbumComment(commentId) {
+  const { error } = await supabase
+    .from('album_comments')
+    .delete()
+    .eq('id', commentId)
+  if (error) throw error
+}
+
+/**
+ * 이름 기반 결정적 색상 (아바타용)
+ */
+export function colorForName(name = '') {
+  const colors = [
+    'oklch(75% 0.12 145)',  // green
+    'oklch(75% 0.12 240)',  // blue
+    'oklch(80% 0.1 355)',   // pink
+    'oklch(82% 0.12 80)',   // yellow
+    'oklch(75% 0.12 300)',  // purple
+    'oklch(78% 0.12 30)',   // orange
+    'oklch(75% 0.1 195)',   // teal
+  ]
+  let h = 0
+  for (let i = 0; i < name.length; i++) h = (h * 31 + name.charCodeAt(i)) | 0
+  return colors[Math.abs(h) % colors.length]
 }
 
 /**
@@ -179,14 +251,14 @@ export async function fetchNewPhotosSince(sinceIso) {
 }
 
 /**
- * 누적 통계 (올해 모임 수, 사진 수, 멤버 수)
+ * 누적 통계 (올해 모임 수, 사진 수, 남긴 추억 = 사진+댓글 합산)
  */
 export async function fetchAlbumStats() {
   const year = new Date().getFullYear()
   const yearStart = `${year}-01-01`
   const yearEnd = `${year + 1}-01-01`
 
-  const [albumsRes, photosRes] = await Promise.all([
+  const [albumsRes, photosRes, commentsRes] = await Promise.all([
     supabase
       .from('albums')
       .select('id', { count: 'exact', head: true })
@@ -194,19 +266,23 @@ export async function fetchAlbumStats() {
       .lt('date', yearEnd),
     supabase
       .from('album_photos')
-      .select('uploader_id'),
+      .select('id', { count: 'exact', head: true }),
+    supabase
+      .from('album_comments')
+      .select('id', { count: 'exact', head: true }),
   ])
 
   if (albumsRes.error) throw albumsRes.error
   if (photosRes.error) throw photosRes.error
+  if (commentsRes.error) throw commentsRes.error
 
-  const photoList = photosRes.data || []
-  const uniqueUploaders = new Set(photoList.map(p => p.uploader_id).filter(Boolean))
+  const photoCount = photosRes.count ?? 0
+  const commentCount = commentsRes.count ?? 0
 
   return {
     yearAlbumCount: albumsRes.count ?? 0,
-    totalPhotoCount: photoList.length,
-    uniqueMemberCount: uniqueUploaders.size,
+    totalPhotoCount: photoCount,
+    memoryCount: photoCount + commentCount,  // 남긴 추억
   }
 }
 

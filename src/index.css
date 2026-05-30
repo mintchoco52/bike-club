@@ -1567,7 +1567,25 @@ select.form-input { cursor: pointer; }
   border: 1px solid oklch(95% 0.01 300);
 }
 .album-card-head { margin-bottom: 14px; }
-.album-card-head h2 { font-size: 1.2rem; font-weight: 700; margin: 0 0 4px; color: oklch(25% 0.04 20); }
+.album-card-titleline {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  margin-bottom: 4px;
+}
+.album-card-titleline h2 { font-size: 1.2rem; font-weight: 700; margin: 0; color: oklch(25% 0.04 20); }
+.album-card-badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 3px 10px;
+  border-radius: 999px;
+  background: oklch(92% 0.08 145);
+  color: oklch(40% 0.12 145);
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+}
 .album-card-meta {
   font-size: 0.88rem;
   color: var(--text-muted);
@@ -1598,6 +1616,8 @@ select.form-input { cursor: pointer; }
 .album-card-grid.count-3 { grid-template-columns: 2fr 1fr; grid-template-rows: 1fr 1fr; }
 .album-card-grid.count-3 .album-tile:first-child { grid-row: 1 / span 2; }
 .album-card-grid.count-4 { grid-template-columns: 1fr 1fr; grid-template-rows: 1fr 1fr; }
+.album-card-grid.count-5,
+.album-card-grid.count-6 { grid-template-columns: repeat(3, 1fr); grid-template-rows: 1fr 1fr; }
 
 .album-tile {
   position: relative;
@@ -1615,17 +1635,198 @@ select.form-input { cursor: pointer; }
 .album-card-grid.count-1 .album-tile { aspect-ratio: 16 / 10; }
 .album-card-grid.count-3 .album-tile:first-child { aspect-ratio: auto; }
 
-.album-tile-more {
-  position: absolute;
-  inset: 0;
+.album-tile-overflow {
   display: flex;
+  flex-direction: column;
   align-items: center;
   justify-content: center;
-  background: rgba(0, 0, 0, 0.5);
-  color: white;
-  font-size: 1.4rem;
-  font-weight: 700;
+  gap: 2px;
+  background: oklch(94% 0.02 300);
+  color: oklch(40% 0.04 20);
+  cursor: pointer;
 }
+.album-tile-more-num { font-size: 1.4rem; font-weight: 800; line-height: 1; color: oklch(45% 0.06 20); }
+.album-tile-more-label { font-size: 0.78rem; color: var(--text-muted); }
+
+/* 올린 사람 아바타 스택 */
+.album-uploaders {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin: 14px 0 12px;
+}
+.album-uploaders-label {
+  font-size: 0.85rem;
+  color: var(--text-muted);
+  font-weight: 500;
+}
+.album-uploaders-stack {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+.album-uploader-avatar {
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: white;
+  font-size: 0.82rem;
+  font-weight: 700;
+  border: 2px solid white;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+  user-select: none;
+}
+.album-uploader-more {
+  background: oklch(85% 0.02 300) !important;
+  color: oklch(40% 0.04 20);
+  font-size: 0.72rem;
+}
+
+/* 카드 내 업로드 버튼 */
+.album-card-upload {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  width: 100%;
+  padding: 14px 16px;
+  margin: 8px 0 0;
+  border: none;
+  border-radius: 14px;
+  background: linear-gradient(135deg, oklch(72% 0.13 145) 0%, oklch(68% 0.14 165) 100%);
+  color: white;
+  cursor: pointer;
+  font-weight: 700;
+  font-size: 1rem;
+  transition: transform 0.15s ease, box-shadow 0.15s ease;
+}
+.album-card-upload:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 6px 18px oklch(68% 0.14 165 / 0.25);
+}
+.album-card-upload small {
+  font-size: 0.78rem;
+  font-weight: 500;
+  opacity: 0.92;
+}
+
+/* 댓글 섹션 */
+.album-comments-section {
+  margin-top: 16px;
+  padding-top: 14px;
+  border-top: 1px solid oklch(94% 0.01 300);
+}
+.album-comments-head {
+  font-size: 0.88rem;
+  font-weight: 600;
+  color: oklch(35% 0.04 20);
+  margin-bottom: 10px;
+}
+.album-comments-empty {
+  text-align: center;
+  font-size: 0.85rem;
+  color: var(--text-muted);
+  padding: 10px 0 14px;
+  margin: 0;
+}
+.album-comments-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-bottom: 10px;
+}
+.album-comments-more {
+  background: none;
+  border: none;
+  color: var(--primary);
+  font-size: 0.82rem;
+  font-weight: 600;
+  cursor: pointer;
+  padding: 4px 0;
+  text-align: left;
+}
+.album-comments-more:hover { text-decoration: underline; }
+
+.album-comment {
+  display: flex;
+  gap: 10px;
+  align-items: flex-start;
+}
+.album-comment-avatar {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: white;
+  font-size: 0.85rem;
+  font-weight: 700;
+  flex-shrink: 0;
+  user-select: none;
+}
+.album-comment-body { flex: 1; min-width: 0; }
+.album-comment-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 2px;
+  font-size: 0.82rem;
+}
+.album-comment-head strong { font-weight: 700; color: oklch(28% 0.04 20); }
+.album-comment-time { color: var(--text-muted); }
+.album-comment-delete {
+  margin-left: auto;
+  background: none;
+  border: none;
+  cursor: pointer;
+  font-size: 0.78rem;
+  color: var(--text-muted);
+  padding: 2px 6px;
+  border-radius: 6px;
+}
+.album-comment-delete:hover { background: oklch(95% 0.06 30); color: oklch(40% 0.1 30); }
+.album-comment-content {
+  margin: 0;
+  font-size: 0.92rem;
+  line-height: 1.5;
+  color: oklch(30% 0.04 20);
+  word-break: break-word;
+}
+
+.album-comment-form {
+  display: flex;
+  gap: 8px;
+  margin-top: 12px;
+}
+.album-comment-form input {
+  flex: 1;
+  padding: 9px 14px;
+  border-radius: 999px;
+  border: 1px solid var(--border);
+  background: oklch(98% 0.005 300);
+  font-size: 0.92rem;
+  outline: none;
+  font-family: inherit;
+}
+.album-comment-form input:focus {
+  border-color: var(--primary);
+  background: white;
+}
+.album-comment-form button {
+  padding: 9px 18px;
+  border-radius: 999px;
+  border: none;
+  background: var(--primary);
+  color: white;
+  font-weight: 600;
+  font-size: 0.88rem;
+  cursor: pointer;
+}
+.album-comment-form button:disabled { opacity: 0.4; cursor: not-allowed; }
 
 /* 비디오 타일 */
 .album-tile.is-video { background-color: #111; }
@@ -1816,6 +2017,23 @@ select.form-input { cursor: pointer; }
   margin-left: 8px;
 }
 .lightbox-delete:hover { background: rgba(255, 80, 80, 0.32); }
+
+/* 업로드 진행률 (페이지에 떠있는 형태 - 모달 닫혔을 때) */
+.upload-floating {
+  position: sticky;
+  top: 80px;
+  z-index: 50;
+  margin: 0 0 16px;
+  padding: 12px 16px;
+  background: white;
+  border-radius: 12px;
+  border: 1px solid var(--border);
+  box-shadow: 0 4px 14px rgba(0,0,0,0.08);
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.upload-floating span { font-size: 0.85rem; color: var(--text-muted); }
 
 @media (max-width: 600px) {
   .albums-header { padding: 18px 0 18px; flex-direction: column; align-items: stretch; }
@@ -2453,6 +2671,18 @@ body {
 }
 .time-tab {
   padding: 10px 16px;
+}
+.time-tab-link {
+  color: var(--primary);
+  font-weight: 700;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  white-space: nowrap;
+}
+.time-tab-link:hover {
+  background: rgba(255, 255, 255, 0.7);
+  box-shadow: 0 4px 12px rgba(31, 41, 55, 0.06);
 }
 
 .home-gallery {

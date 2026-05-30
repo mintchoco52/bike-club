@@ -10,13 +10,30 @@ import {
   fetchNewPhotosSince,
   fetchAlbumStats,
   isVideoUrl,
+  addAlbumComment,
+  deleteAlbumComment,
+  colorForName,
 } from '../lib/albums'
 
 const LAST_SEEN_KEY = 'albums_last_seen_at'
+const COVER_LIMIT = 6
+const COMMENT_PREVIEW_LIMIT = 2
 
 function formatAlbumDate(dateStr) {
   const d = new Date(dateStr + 'T00:00:00')
   return d.toLocaleDateString('ko-KR', { month: 'long', day: 'numeric', weekday: 'short' })
+}
+
+function formatCommentTime(str) {
+  const diff = Date.now() - new Date(str).getTime()
+  const mins = Math.floor(diff / 60000)
+  if (mins < 1) return '방금'
+  if (mins < 60) return `${mins}분 전`
+  const hours = Math.floor(mins / 60)
+  if (hours < 24) return `${hours}시간 전`
+  const days = Math.floor(hours / 24)
+  if (days < 7) return `${days}일 전`
+  return new Date(str).toLocaleDateString('ko-KR', { month: 'short', day: 'numeric' })
 }
 
 function todayKST() {
@@ -33,19 +50,20 @@ export default function Albums() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
   const [newPhotos, setNewPhotos] = useState([])
-  const [stats, setStats] = useState({ yearAlbumCount: 0, totalPhotoCount: 0, uniqueMemberCount: 0 })
+  const [stats, setStats] = useState({ yearAlbumCount: 0, totalPhotoCount: 0, memoryCount: 0 })
 
-  // 업로드 모달 상태
+  // 업로드 상태
   const [pickerOpen, setPickerOpen] = useState(false)
   const [pendingFiles, setPendingFiles] = useState([])
   const [recentAlbum, setRecentAlbum] = useState(null)
-  const [mode, setMode] = useState('recent') // 'recent' | 'new'
+  const [mode, setMode] = useState('recent')
   const [newTitle, setNewTitle] = useState(defaultAlbumTitle())
   const [newDate, setNewDate] = useState(todayKST())
   const [uploading, setUploading] = useState(false)
   const [progress, setProgress] = useState(null)
+  const [directAlbumId, setDirectAlbumId] = useState(null) // 카드 안 버튼에서 직접 업로드 대상
 
-  // 라이트박스 상태
+  // 라이트박스
   const [lightbox, setLightbox] = useState(null) // { album, index }
 
   const load = useCallback(async () => {
@@ -53,7 +71,6 @@ export default function Albums() {
     setError('')
     try {
       let lastSeen = localStorage.getItem(LAST_SEEN_KEY)
-      // 첫 방문이면 지금 시각을 기록하고 알림은 안 띄움 (이후부터 새 사진 기준)
       if (!lastSeen) {
         const now = new Date().toISOString()
         localStorage.setItem(LAST_SEEN_KEY, now)
@@ -65,7 +82,6 @@ export default function Albums() {
         fetchAlbumStats(),
       ])
       setAlbums(list)
-      // 본인 사진은 알림에서 제외
       setNewPhotos(fresh.filter(p => p.uploader_id !== user?.id))
       setStats(st)
     } catch (err) {
@@ -77,13 +93,11 @@ export default function Albums() {
 
   useEffect(() => { load() }, [load])
 
-  // 알림 닫기 = 마지막 본 시각 갱신
   function dismissNotice() {
     localStorage.setItem(LAST_SEEN_KEY, new Date().toISOString())
     setNewPhotos([])
   }
 
-  // 알림 띠 요약: 최근 업로더 이름 + 사진 N장 (여러 명이면 "외 N명")
   const noticeText = (() => {
     if (!newPhotos.length) return null
     const names = [...new Set(newPhotos.map(p => p.uploader_name || '누군가').filter(Boolean))]
@@ -96,16 +110,26 @@ export default function Albums() {
     return `${firstName}님이 사진 ${photoCount}장 올렸어요`
   })()
 
-  function openFilePicker() {
+  // 업로드 흐름
+  function openFilePicker(targetAlbumId = null) {
+    setDirectAlbumId(targetAlbumId)
     fileInputRef.current?.click()
   }
 
   async function handleFilesSelected(e) {
     const files = Array.from(e.target.files || [])
-    e.target.value = '' // 같은 파일 다시 선택 가능
+    e.target.value = ''
     if (!files.length) return
 
     setPendingFiles(files)
+
+    // 카드 안 버튼에서 호출 → 모달 건너뛰고 바로 업로드
+    if (directAlbumId) {
+      await doUpload({ albumId: directAlbumId, files })
+      setDirectAlbumId(null)
+      return
+    }
+
     try {
       const recent = await fetchRecentAlbum()
       setRecentAlbum(recent)
@@ -118,10 +142,32 @@ export default function Albums() {
     }
   }
 
+  async function doUpload({ albumId, files }) {
+    setUploading(true)
+    setProgress({ current: 0, total: files.length })
+    try {
+      const result = await uploadAlbumPhotos({
+        files,
+        albumId,
+        userId: user.id,
+        userName: profile?.name || '',
+        onProgress: (current, total) => setProgress({ current, total }),
+      })
+      if (result.failed > 0) {
+        setError(`${result.failed}장 업로드 실패. ${result.success}장 성공.`)
+      }
+      setPendingFiles([])
+      await load()
+    } catch (err) {
+      setError(err.message || '업로드 실패')
+    } finally {
+      setUploading(false)
+      setProgress(null)
+    }
+  }
+
   async function confirmUpload() {
     if (!pendingFiles.length || !user) return
-    setUploading(true)
-    setProgress({ current: 0, total: pendingFiles.length })
     try {
       let albumId
       if (mode === 'recent' && recentAlbum) {
@@ -135,25 +181,10 @@ export default function Albums() {
         })
         albumId = album.id
       }
-
-      const result = await uploadAlbumPhotos({
-        files: pendingFiles,
-        albumId,
-        userId: user.id,
-        userName: profile?.name || '',
-        onProgress: (current, total) => setProgress({ current, total }),
-      })
-
-      if (result.failed > 0) {
-        setError(`${result.failed}장 업로드 실패. ${result.success}장 성공.`)
-      }
-      closePicker()
-      await load()
+      setPickerOpen(false)
+      await doUpload({ albumId, files: pendingFiles })
     } catch (err) {
       setError(err.message || '업로드 실패')
-    } finally {
-      setUploading(false)
-      setProgress(null)
     }
   }
 
@@ -164,9 +195,8 @@ export default function Albums() {
     setRecentAlbum(null)
   }
 
-  function openLightbox(album, index) {
-    setLightbox({ album, index })
-  }
+  // 라이트박스
+  function openLightbox(album, index) { setLightbox({ album, index }) }
   function closeLightbox() { setLightbox(null) }
   function lightboxPrev() {
     if (!lightbox) return
@@ -190,6 +220,32 @@ export default function Albums() {
     }
   }
 
+  // 댓글
+  async function handleAddComment(albumId, content) {
+    if (!content.trim() || !user) return
+    try {
+      await addAlbumComment({
+        albumId,
+        userId: user.id,
+        userName: profile?.name || '',
+        content,
+      })
+      await load()
+    } catch (err) {
+      alert(err.message || '댓글 작성 실패')
+    }
+  }
+
+  async function handleDeleteComment(commentId) {
+    if (!confirm('이 댓글을 삭제할까요?')) return
+    try {
+      await deleteAlbumComment(commentId)
+      await load()
+    } catch (err) {
+      alert(err.message || '댓글 삭제 실패')
+    }
+  }
+
   return (
     <div className="page albums-page">
       <div className="container">
@@ -198,20 +254,10 @@ export default function Albums() {
             <h1>모임 앨범</h1>
             <p className="albums-subtitle">함께한 라이딩의 순간들을 모아보세요</p>
           </div>
-          <button className="btn btn-primary btn-lg upload-cta" onClick={openFilePicker}>
+          <button className="btn btn-primary btn-lg upload-cta" onClick={() => openFilePicker()}>
             📸 사진·영상 올리기
           </button>
         </header>
-
-        {noticeText && (
-          <div className="albums-notice" role="status">
-            <span className="albums-notice-icon">🔔</span>
-            <span className="albums-notice-text">{noticeText}</span>
-            <button className="albums-notice-close" onClick={dismissNotice} aria-label="알림 닫기">
-              ✕
-            </button>
-          </div>
-        )}
 
         <input
           ref={fileInputRef}
@@ -222,10 +268,27 @@ export default function Albums() {
           onChange={handleFilesSelected}
         />
 
+        {noticeText && (
+          <div className="albums-notice" role="status">
+            <span className="albums-notice-icon">🔔</span>
+            <span className="albums-notice-text">{noticeText}</span>
+            <button className="albums-notice-close" onClick={dismissNotice} aria-label="알림 닫기">✕</button>
+          </div>
+        )}
+
         {error && (
           <div className="albums-error">
             ⚠️ {error}
             <button onClick={() => setError('')}>닫기</button>
+          </div>
+        )}
+
+        {uploading && progress && !pickerOpen && (
+          <div className="upload-floating">
+            <div className="upload-progress-bar">
+              <div className="upload-progress-fill" style={{ width: `${(progress.current / progress.total) * 100}%` }} />
+            </div>
+            <span>{progress.current} / {progress.total} 업로드 중...</span>
           </div>
         )}
 
@@ -238,15 +301,20 @@ export default function Albums() {
             <div className="albums-empty-icon">📷</div>
             <h3>아직 모임 앨범이 없어요</h3>
             <p>첫 사진을 올리면 자동으로 앨범이 만들어져요.</p>
-            <button className="btn btn-primary btn-lg" onClick={openFilePicker}>첫 사진 올리기</button>
+            <button className="btn btn-primary btn-lg" onClick={() => openFilePicker()}>첫 사진 올리기</button>
           </div>
         ) : (
           <div className="albums-list">
-            {albums.map(album => (
+            {albums.map((album, idx) => (
               <AlbumCard
                 key={album.id}
                 album={album}
-                onPhotoClick={(idx) => openLightbox(album, idx)}
+                isLatest={idx === 0}
+                currentUserId={user?.id}
+                onPhotoClick={(photoIdx) => openLightbox(album, photoIdx)}
+                onUploadClick={() => openFilePicker(album.id)}
+                onAddComment={(content) => handleAddComment(album.id, content)}
+                onDeleteComment={handleDeleteComment}
               />
             ))}
           </div>
@@ -268,15 +336,15 @@ export default function Albums() {
                 <span className="albums-stat-label">쌓인 사진</span>
               </div>
               <div className="albums-stat">
-                <span className="albums-stat-num">{stats.uniqueMemberCount}</span>
-                <span className="albums-stat-label">활동 멤버</span>
+                <span className="albums-stat-num">{stats.memoryCount}</span>
+                <span className="albums-stat-label">남긴 추억</span>
               </div>
             </div>
           </section>
         )}
       </div>
 
-      {/* 업로드 선택 모달 */}
+      {/* 업로드 모달 (페이지 상단 버튼에서 호출됐을 때만) */}
       {pickerOpen && (
         <div className="modal-backdrop" onClick={closePicker}>
           <div className="modal album-modal" onClick={e => e.stopPropagation()}>
@@ -286,26 +354,15 @@ export default function Albums() {
             <div className="album-modal-options">
               {recentAlbum && (
                 <label className={`album-option ${mode === 'recent' ? 'selected' : ''}`}>
-                  <input
-                    type="radio"
-                    name="albumMode"
-                    checked={mode === 'recent'}
-                    onChange={() => setMode('recent')}
-                  />
+                  <input type="radio" name="albumMode" checked={mode === 'recent'} onChange={() => setMode('recent')} />
                   <div>
                     <strong>{recentAlbum.title}</strong>
                     <span>{formatAlbumDate(recentAlbum.date)} · 최근 앨범에 추가</span>
                   </div>
                 </label>
               )}
-
               <label className={`album-option ${mode === 'new' ? 'selected' : ''}`}>
-                <input
-                  type="radio"
-                  name="albumMode"
-                  checked={mode === 'new'}
-                  onChange={() => setMode('new')}
-                />
+                <input type="radio" name="albumMode" checked={mode === 'new'} onChange={() => setMode('new')} />
                 <div>
                   <strong>새 앨범 만들기</strong>
                   <span>다른 날짜의 라이딩이거나 새 모임</span>
@@ -322,7 +379,6 @@ export default function Albums() {
                       value={newDate}
                       onChange={e => {
                         setNewDate(e.target.value)
-                        // 사용자가 제목을 직접 안 고쳤으면 자동 갱신
                         if (newTitle === defaultAlbumTitle() || newTitle === '' ||
                             newTitle.match(/^\d+월 \d+일 라이딩$/)) {
                           setNewTitle(defaultAlbumTitle(e.target.value))
@@ -348,10 +404,7 @@ export default function Albums() {
             {uploading && progress && (
               <div className="upload-progress">
                 <div className="upload-progress-bar">
-                  <div
-                    className="upload-progress-fill"
-                    style={{ width: `${(progress.current / progress.total) * 100}%` }}
-                  />
+                  <div className="upload-progress-fill" style={{ width: `${(progress.current / progress.total) * 100}%` }} />
                 </div>
                 <span>{progress.current} / {progress.total} 업로드 중...</span>
               </div>
@@ -388,20 +441,13 @@ export default function Albums() {
                 playsInline
               />
             ) : (
-              <img
-                src={lightbox.album.allPhotos[lightbox.index].url}
-                alt=""
-                className="lightbox-img"
-              />
+              <img src={lightbox.album.allPhotos[lightbox.index].url} alt="" className="lightbox-img" />
             )}
             <div className="lightbox-meta">
               <span>📸 {lightbox.album.allPhotos[lightbox.index].uploader_name || '익명'}</span>
               <span>· {lightbox.index + 1} / {lightbox.album.allPhotos.length}</span>
               {lightbox.album.allPhotos[lightbox.index].uploader_id === user?.id && (
-                <button
-                  className="lightbox-delete"
-                  onClick={() => handleDeletePhoto(lightbox.album.allPhotos[lightbox.index])}
-                >
+                <button className="lightbox-delete" onClick={() => handleDeletePhoto(lightbox.album.allPhotos[lightbox.index])}>
                   🗑 삭제
                 </button>
               )}
@@ -413,37 +459,65 @@ export default function Albums() {
   )
 }
 
-function AlbumCard({ album, onPhotoClick }) {
-  const remaining = album.photoCount - album.coverPhotos.length
+function AlbumCard({ album, isLatest, currentUserId, onPhotoClick, onUploadClick, onAddComment, onDeleteComment }) {
+  const [draft, setDraft] = useState('')
+  const [submitting, setSubmitting] = useState(false)
+  const [expanded, setExpanded] = useState(false)
+
+  const photos = album.coverPhotos
+  const photoCount = album.photoCount
+  const showLimit = COVER_LIMIT - 1 // 마지막 칸은 +N 더보기용
+  const overflow = photoCount > COVER_LIMIT
+  const visiblePhotos = overflow ? photos.slice(0, showLimit) : photos
+  const remaining = overflow ? photoCount - showLimit : 0
+
+  const comments = album.comments || []
+  const visibleComments = expanded ? comments : comments.slice(-COMMENT_PREVIEW_LIMIT)
+  const hiddenCount = comments.length - visibleComments.length
+
+  const gridCount = Math.min(photoCount, COVER_LIMIT)
+
+  async function handleSubmit(e) {
+    e.preventDefault()
+    if (!draft.trim() || submitting) return
+    setSubmitting(true)
+    try {
+      await onAddComment(draft)
+      setDraft('')
+    } finally {
+      setSubmitting(false)
+    }
+  }
 
   return (
     <article className="album-card">
       <header className="album-card-head">
-        <div>
+        <div className="album-card-titleline">
           <h2>{album.title}</h2>
-          <p className="album-card-meta">
-            {formatAlbumDate(album.date)}
-            {album.photoCount > 0 && (
-              <>
-                <span className="dot">·</span>
-                <span>사진 {album.photoCount}장</span>
-                {album.uploaderCount > 1 && (
-                  <>
-                    <span className="dot">·</span>
-                    <span>{album.uploaderCount}명이 올림</span>
-                  </>
-                )}
-              </>
-            )}
-          </p>
+          {isLatest && <span className="album-card-badge">최근 모임</span>}
         </div>
+        <p className="album-card-meta">
+          {formatAlbumDate(album.date)}
+          {photoCount > 0 && (
+            <>
+              <span className="dot">·</span>
+              <span>사진 {photoCount}장</span>
+              {album.uploaderCount > 1 && (
+                <>
+                  <span className="dot">·</span>
+                  <span>{album.uploaderCount}명이 올림</span>
+                </>
+              )}
+            </>
+          )}
+        </p>
       </header>
 
-      {album.coverPhotos.length === 0 ? (
+      {photoCount === 0 ? (
         <div className="album-card-empty">아직 사진이 없어요</div>
       ) : (
-        <div className={`album-card-grid count-${Math.min(album.coverPhotos.length, 4)}`}>
-          {album.coverPhotos.map((photo, idx) => {
+        <div className={`album-card-grid count-${gridCount}`}>
+          {visiblePhotos.map((photo, idx) => {
             const isVideo = isVideoUrl(photo.url)
             return (
               <button
@@ -460,14 +534,106 @@ function AlbumCard({ album, onPhotoClick }) {
                     <span className="album-tile-play" aria-hidden="true">▶</span>
                   </>
                 )}
-                {idx === 3 && remaining > 0 && (
-                  <span className="album-tile-more">+{remaining}</span>
-                )}
               </button>
             )
           })}
+          {overflow && (
+            <button
+              type="button"
+              className="album-tile album-tile-overflow"
+              onClick={() => onPhotoClick(showLimit)}
+              aria-label={`${remaining}장 더 보기`}
+            >
+              <span className="album-tile-more-num">+{remaining}</span>
+              <span className="album-tile-more-label">더보기</span>
+            </button>
+          )}
         </div>
       )}
+
+      {album.uploaders.length > 0 && (
+        <div className="album-uploaders">
+          <span className="album-uploaders-label">올린 사람</span>
+          <div className="album-uploaders-stack">
+            {album.uploaders.slice(0, 6).map((u, i) => (
+              <span
+                key={`${u.id || u.name}-${i}`}
+                className="album-uploader-avatar"
+                style={{ background: colorForName(u.name) }}
+                title={u.name}
+              >
+                {u.name[0] || '?'}
+              </span>
+            ))}
+            {album.uploaders.length > 6 && (
+              <span className="album-uploader-avatar album-uploader-more">+{album.uploaders.length - 6}</span>
+            )}
+          </div>
+        </div>
+      )}
+
+      <button type="button" className="album-card-upload" onClick={onUploadClick}>
+        <span>📸 내 사진 올리기</span>
+        <small>여러 장 한 번에 선택할 수 있어요</small>
+      </button>
+
+      <div className="album-comments-section">
+        <div className="album-comments-head">
+          💬 댓글 {comments.length}개
+        </div>
+        {comments.length === 0 ? (
+          <p className="album-comments-empty">첫 댓글을 남겨보세요</p>
+        ) : (
+          <div className="album-comments-list">
+            {hiddenCount > 0 && !expanded && (
+              <button type="button" className="album-comments-more" onClick={() => setExpanded(true)}>
+                이전 댓글 {hiddenCount}개 더 보기
+              </button>
+            )}
+            {visibleComments.map(c => (
+              <div key={c.id} className="album-comment">
+                <span
+                  className="album-comment-avatar"
+                  style={{ background: colorForName(c.user_name || '') }}
+                  aria-hidden="true"
+                >
+                  {(c.user_name || '?')[0]}
+                </span>
+                <div className="album-comment-body">
+                  <div className="album-comment-head">
+                    <strong>{c.user_name || '익명'}</strong>
+                    <span className="album-comment-time">{formatCommentTime(c.created_at)}</span>
+                    {c.user_id === currentUserId && (
+                      <button
+                        type="button"
+                        className="album-comment-delete"
+                        onClick={() => onDeleteComment(c.id)}
+                        aria-label="댓글 삭제"
+                      >
+                        ✕
+                      </button>
+                    )}
+                  </div>
+                  <p className="album-comment-content">{c.content}</p>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+        <form className="album-comment-form" onSubmit={handleSubmit}>
+          <input
+            type="text"
+            value={draft}
+            onChange={e => setDraft(e.target.value)}
+            placeholder="댓글 달기..."
+            disabled={submitting}
+            maxLength={300}
+          />
+          <button type="submit" disabled={!draft.trim() || submitting}>
+            {submitting ? '...' : '등록'}
+          </button>
+        </form>
+      </div>
     </article>
   )
 }

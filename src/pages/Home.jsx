@@ -183,6 +183,12 @@ export default function Home() {
           >
             지난 모임
           </button>
+          <button
+            className="time-tab time-tab-link"
+            onClick={() => navigate('/albums')}
+          >
+            🖼️ 모임 앨범
+          </button>
         </div>
 
         <div className="section-header">
