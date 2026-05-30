@@ -9,6 +9,8 @@ import Profile from './pages/Profile'
 import Gallery from './pages/Gallery'
 import Login from './pages/Login'
 import Register from './pages/Register'
+import ForgotPassword from './pages/ForgotPassword'
+import ResetPassword from './pages/ResetPassword'
 
 function AppRoutes() {
   const { user } = useAuth()
@@ -19,6 +21,8 @@ function AppRoutes() {
         <Routes>
           <Route path="/login"    element={user ? <Navigate to="/" replace /> : <Login />} />
           <Route path="/register" element={user ? <Navigate to="/" replace /> : <Register />} />
+          <Route path="/forgot-password" element={user ? <Navigate to="/" replace /> : <ForgotPassword />} />
+          <Route path="/reset-password" element={<ResetPassword />} />
           <Route path="/" element={<ProtectedRoute><Home /></ProtectedRoute>} />
           <Route path="/create" element={<ProtectedRoute><CreateMeeting /></ProtectedRoute>} />
           <Route path="/meeting/:id" element={<ProtectedRoute><MeetingDetail /></ProtectedRoute>} />
