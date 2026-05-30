@@ -7,6 +7,7 @@ import CreateMeeting from './pages/CreateMeeting'
 import MeetingDetail from './pages/MeetingDetail'
 import Profile from './pages/Profile'
 import Gallery from './pages/Gallery'
+import Albums from './pages/Albums'
 import Login from './pages/Login'
 import Register from './pages/Register'
 import ForgotPassword from './pages/ForgotPassword'
@@ -28,6 +29,7 @@ function AppRoutes() {
           <Route path="/meeting/:id" element={<ProtectedRoute><MeetingDetail /></ProtectedRoute>} />
           <Route path="/profile" element={<ProtectedRoute><Profile /></ProtectedRoute>} />
           <Route path="/gallery" element={<ProtectedRoute><Gallery /></ProtectedRoute>} />
+          <Route path="/albums"  element={<ProtectedRoute><Albums /></ProtectedRoute>} />
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
       </main>

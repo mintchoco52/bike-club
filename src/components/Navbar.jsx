@@ -5,6 +5,7 @@ import { useAuth } from '../contexts/AuthContext'
 const NAV_LINKS = [
   { to: '/',       label: '모임 목록',   icon: '📋' },
   { to: '/create', label: '모임 만들기', icon: '➕' },
+  { to: '/albums', label: '모임 앨범',   icon: '🖼️' },
   { to: '/gallery',label: '갤러리',      icon: '📷' },
   { to: '/profile',label: '내 프로필',   icon: '👤' },
 ]
