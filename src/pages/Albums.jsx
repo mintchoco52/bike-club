@@ -9,6 +9,7 @@ import {
   defaultAlbumTitle,
   fetchNewPhotosSince,
   fetchAlbumStats,
+  isVideoUrl,
 } from '../lib/albums'
 
 const LAST_SEEN_KEY = 'albums_last_seen_at'
@@ -179,7 +180,7 @@ export default function Albums() {
   }
 
   async function handleDeletePhoto(photo) {
-    if (!confirm('이 사진을 삭제할까요?')) return
+    if (!confirm('이 파일을 삭제할까요?')) return
     try {
       await deleteAlbumPhoto(photo)
       setLightbox(null)
@@ -198,7 +199,7 @@ export default function Albums() {
             <p className="albums-subtitle">함께한 라이딩의 순간들을 모아보세요</p>
           </div>
           <button className="btn btn-primary btn-lg upload-cta" onClick={openFilePicker}>
-            📸 내 사진 올리기
+            📸 사진·영상 올리기
           </button>
         </header>
 
@@ -215,7 +216,7 @@ export default function Albums() {
         <input
           ref={fileInputRef}
           type="file"
-          accept="image/*"
+          accept="image/*,video/*,.mov,.mp4,.webm,.m4v"
           multiple
           style={{ display: 'none' }}
           onChange={handleFilesSelected}
@@ -279,7 +280,7 @@ export default function Albums() {
       {pickerOpen && (
         <div className="modal-backdrop" onClick={closePicker}>
           <div className="modal album-modal" onClick={e => e.stopPropagation()}>
-            <h3>사진 {pendingFiles.length}장 올리기</h3>
+            <h3>{pendingFiles.length}개 파일 올리기</h3>
             <p className="modal-hint">어느 모임 앨범에 추가할까요?</p>
 
             <div className="album-modal-options">
@@ -359,7 +360,7 @@ export default function Albums() {
             <div className="modal-actions">
               <button className="btn btn-outline" onClick={closePicker} disabled={uploading}>취소</button>
               <button className="btn btn-primary" onClick={confirmUpload} disabled={uploading}>
-                {uploading ? '업로드 중...' : `${pendingFiles.length}장 올리기`}
+                {uploading ? '업로드 중...' : `${pendingFiles.length}개 올리기`}
               </button>
             </div>
           </div>
@@ -377,11 +378,22 @@ export default function Albums() {
             </>
           )}
           <div className="lightbox-content" onClick={e => e.stopPropagation()}>
-            <img
-              src={lightbox.album.allPhotos[lightbox.index].url}
-              alt=""
-              className="lightbox-img"
-            />
+            {isVideoUrl(lightbox.album.allPhotos[lightbox.index].url) ? (
+              <video
+                key={lightbox.album.allPhotos[lightbox.index].id}
+                src={lightbox.album.allPhotos[lightbox.index].url}
+                className="lightbox-img"
+                controls
+                autoPlay
+                playsInline
+              />
+            ) : (
+              <img
+                src={lightbox.album.allPhotos[lightbox.index].url}
+                alt=""
+                className="lightbox-img"
+              />
+            )}
             <div className="lightbox-meta">
               <span>📸 {lightbox.album.allPhotos[lightbox.index].uploader_name || '익명'}</span>
               <span>· {lightbox.index + 1} / {lightbox.album.allPhotos.length}</span>
@@ -431,20 +443,29 @@ function AlbumCard({ album, onPhotoClick }) {
         <div className="album-card-empty">아직 사진이 없어요</div>
       ) : (
         <div className={`album-card-grid count-${Math.min(album.coverPhotos.length, 4)}`}>
-          {album.coverPhotos.map((photo, idx) => (
-            <button
-              key={photo.id}
-              type="button"
-              className="album-tile"
-              onClick={() => onPhotoClick(idx)}
-              style={{ backgroundImage: `url(${photo.url})` }}
-              aria-label={`사진 ${idx + 1}`}
-            >
-              {idx === 3 && remaining > 0 && (
-                <span className="album-tile-more">+{remaining}</span>
-              )}
-            </button>
-          ))}
+          {album.coverPhotos.map((photo, idx) => {
+            const isVideo = isVideoUrl(photo.url)
+            return (
+              <button
+                key={photo.id}
+                type="button"
+                className={`album-tile${isVideo ? ' is-video' : ''}`}
+                onClick={() => onPhotoClick(idx)}
+                style={isVideo ? undefined : { backgroundImage: `url(${photo.url})` }}
+                aria-label={isVideo ? `영상 ${idx + 1}` : `사진 ${idx + 1}`}
+              >
+                {isVideo && (
+                  <>
+                    <video src={photo.url} muted playsInline preload="metadata" />
+                    <span className="album-tile-play" aria-hidden="true">▶</span>
+                  </>
+                )}
+                {idx === 3 && remaining > 0 && (
+                  <span className="album-tile-more">+{remaining}</span>
+                )}
+              </button>
+            )
+          })}
         </div>
       )}
     </article>

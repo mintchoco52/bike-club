@@ -2,6 +2,18 @@ import { supabase } from './supabase'
 
 const BUCKET = 'album-photos'
 const RECENT_DAYS = 7 // 최근 N일 내 앨범이면 자동 추천
+const MAX_FILE_SIZE_MB = 50 // Supabase Storage 기본 제한
+const VIDEO_EXTENSIONS = /\.(mp4|mov|webm|m4v)(\?|#|$)/i
+
+export function isVideoUrl(url = '') {
+  return VIDEO_EXTENSIONS.test(url)
+}
+
+export function isVideoFile(file) {
+  if (!file) return false
+  if (file.type?.startsWith('video/')) return true
+  return VIDEO_EXTENSIONS.test(file.name || '')
+}
 
 function todayKST() {
   // KST 기준 YYYY-MM-DD
@@ -108,9 +120,19 @@ export async function uploadAlbumPhotos({ files, albumId, userId, userName, onPr
     onProgress?.(i + 1, total)
 
     try {
+      // 크기 체크
+      if (file.size > MAX_FILE_SIZE_MB * 1024 * 1024) {
+        throw new Error(`${file.name}: ${MAX_FILE_SIZE_MB}MB를 초과합니다 (${(file.size / 1024 / 1024).toFixed(1)}MB)`)
+      }
+
       const ext = (file.name.split('.').pop() || 'jpg').toLowerCase()
       const path = `${albumId}/${userId}/${Date.now()}-${i}.${ext}`
-      const contentType = file.type || 'image/jpeg'
+      // iPhone .mov 등 contentType 비어 있는 경우 대비
+      const contentType = file.type
+        || (ext === 'mov' ? 'video/quicktime'
+          : ext === 'mp4' ? 'video/mp4'
+          : ext === 'webm' ? 'video/webm'
+          : 'image/jpeg')
 
       const { error: storageErr } = await supabase.storage
         .from(BUCKET)
