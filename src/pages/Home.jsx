@@ -4,13 +4,10 @@ import { supabase } from '../lib/supabase'
 import { useAuth } from '../contexts/AuthContext'
 import MeetingCard from '../components/MeetingCard'
 import { getQuoteOfTheDay } from '../lib/cyclingQuotes'
+import { isVideoUrl } from '../lib/albums'
 
 function formatShortDate(dateStr) {
   return new Date(dateStr).toLocaleDateString('ko-KR', { month: 'numeric', day: 'numeric', weekday: 'short' })
-}
-
-function isVideoUrl(url = '') {
-  return /\.(mp4|webm|mov)(\?|#|$)/i.test(url)
 }
 
 function getRidingScoreLabel(meeting) {
@@ -47,11 +44,12 @@ export default function Home() {
       if (err) throw err
       setMeetings(data || [])
 
+      // 모임 앨범의 최신 사진 (기존 갤러리 photos 테이블 → album_photos로 전환)
       const { data: photoData } = await supabase
-        .from('photos')
-        .select('id, url, title, created_at')
+        .from('album_photos')
+        .select('id, url, created_at, album:albums(id, title)')
         .order('created_at', { ascending: false })
-        .limit(4)
+        .limit(6)
       setLatestPhotos(photoData || [])
 
       if (data?.length) {
@@ -215,8 +213,8 @@ export default function Home() {
         {latestPhotos.length > 0 && (
           <section className="home-gallery">
             <div className="home-gallery-head">
-              <h2>최신 라이딩 기록</h2>
-              <button type="button" onClick={() => navigate('/gallery')}>전체 보기</button>
+              <h2>최근 모임 앨범</h2>
+              <button type="button" onClick={() => navigate('/albums')}>전체 보기</button>
             </div>
             <div className="home-gallery-strip">
               {latestPhotos.map(photo => (
@@ -225,12 +223,12 @@ export default function Home() {
                   type="button"
                   className={`home-gallery-tile${isVideoUrl(photo.url) ? ' video' : ''}`}
                   style={{ backgroundImage: isVideoUrl(photo.url) ? undefined : `linear-gradient(to top, rgba(0,0,0,0.34), transparent 62%), url(${photo.url})` }}
-                  onClick={() => navigate('/gallery')}
+                  onClick={() => navigate('/albums')}
                 >
                   {isVideoUrl(photo.url)
                     ? <video src={photo.url} muted playsInline preload="metadata" />
-                    : <img src={photo.url} alt={photo.title || '라이딩 기록'} loading="lazy" />}
-                  <span>{photo.title || '라이딩 기록'}</span>
+                    : <img src={photo.url} alt={photo.album?.title || '모임 앨범'} loading="lazy" />}
+                  <span>{photo.album?.title || '모임 앨범'}</span>
                 </button>
               ))}
             </div>

@@ -1297,6 +1297,120 @@ select.form-input { cursor: pointer; }
 .auth-success > p { line-height: 1.5; color: oklch(30% 0.04 20); }
 .auth-success strong { color: var(--primary); }
 
+/* ===== HOME 앨범 strip (컴팩트) ===== */
+.album-strip {
+  margin: 18px 0 22px;
+  padding: 14px 16px 12px;
+  border-radius: 16px;
+  background: linear-gradient(135deg, #fffaf3 0%, #fff1ee 50%, #f4f0ff 100%);
+  border: 1px solid rgba(255, 255, 255, 0.7);
+  box-shadow: 0 4px 14px rgba(70, 40, 80, 0.05);
+  cursor: pointer;
+  transition: transform 0.15s ease, box-shadow 0.15s ease;
+}
+.album-strip:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 6px 18px rgba(70, 40, 80, 0.08);
+}
+.album-strip-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 10px;
+  font-size: 0.9rem;
+  color: oklch(35% 0.04 20);
+}
+.album-strip-title { font-weight: 500; }
+.album-strip-title strong { font-weight: 700; color: oklch(28% 0.04 20); }
+.album-strip-link {
+  font-size: 0.82rem;
+  color: var(--primary);
+  font-weight: 600;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  white-space: nowrap;
+}
+.album-strip-badge {
+  padding: 2px 8px;
+  border-radius: 999px;
+  background: oklch(92% 0.08 50);
+  color: oklch(38% 0.1 30);
+  font-size: 0.75rem;
+  font-weight: 700;
+}
+
+.album-strip-thumbs {
+  display: flex;
+  gap: 6px;
+  overflow-x: auto;
+  scroll-behavior: smooth;
+  scrollbar-width: none;
+  -webkit-overflow-scrolling: touch;
+  padding-bottom: 2px;
+}
+.album-strip-thumbs::-webkit-scrollbar { display: none; }
+
+.album-strip-thumb {
+  position: relative;
+  flex: 0 0 78px;
+  width: 78px;
+  height: 78px;
+  border-radius: 10px;
+  background-color: oklch(94% 0.01 300);
+  background-size: cover;
+  background-position: center;
+  overflow: hidden;
+}
+.album-strip-thumb.is-video { background-color: #111; }
+.album-strip-thumb.is-video video {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  pointer-events: none;
+}
+.album-strip-play {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  background: rgba(0, 0, 0, 0.6);
+  color: white;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.65rem;
+  padding-left: 2px;
+}
+.album-strip-more {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: oklch(94% 0.02 300);
+  color: var(--text-muted);
+  font-weight: 700;
+  font-size: 0.95rem;
+}
+.album-strip-empty {
+  padding: 18px 12px;
+  text-align: center;
+  color: var(--text-muted);
+  font-size: 0.85rem;
+  background: rgba(255, 255, 255, 0.5);
+  border-radius: 10px;
+}
+@media (max-width: 600px) {
+  .album-strip-thumb { flex: 0 0 68px; width: 68px; height: 68px; }
+  .album-strip-head { font-size: 0.85rem; }
+  .album-strip-link { font-size: 0.78rem; }
+}
+
 /* ===== ALBUMS PAGE ===== */
 .albums-page { padding-bottom: 60px; }
 
